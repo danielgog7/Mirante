@@ -363,3 +363,69 @@ nav.barra { position: fixed; left: 50%; transform: translateX(-50%); width: max-
   .rl-prog i.ativo::after { animation: none !important; transform: scaleX(.5); }
 }
 @media (forced-colors: active) { .mk, .brasas i.on { forced-color-adjust: none; } }
+
+/* ---------- Tema: o céu do mirante ---------- */
+#ceu { position: fixed; inset: 0; z-index: -1; display: block; pointer-events: none; }
+#centelhas { position: fixed; inset: 0; z-index: 95; pointer-events: none; }
+.topo { max-width: none; padding-left: max(16px, calc(50vw - 574px)); padding-right: max(16px, calc(50vw - 574px)); background: linear-gradient(180deg, rgba(15,18,26,.88) 30%, rgba(15,18,26,0)); }
+
+/* Caixas: vidro noturno com cantos de astrolábio (arcos graduados e uma estrela) */
+.painel { position: relative; background: linear-gradient(180deg, rgba(122,162,245,.05), rgba(122,162,245,0) 42%), rgba(19,23,34,.86);
+  border-color: rgba(150,172,230,.15); box-shadow: inset 0 1px 0 rgba(205,218,255,.07), 0 16px 38px rgba(0,0,0,.32); }
+.painel::before { content: ''; position: absolute; inset: 5px; z-index: 2; pointer-events: none;
+  background: var(--c-tl) left top / 30px 30px no-repeat, var(--c-tr) right top / 30px 30px no-repeat, var(--c-bl) left bottom / 30px 30px no-repeat, var(--c-br) right bottom / 30px 30px no-repeat;
+  transition: filter .35s ease; }
+@media (hover: hover) { .painel:hover::before { filter: drop-shadow(0 0 3px rgba(230,204,147,.5)); } }
+.folha-c { background: linear-gradient(180deg, rgba(122,162,245,.06), rgba(122,162,245,0) 30%), #151a26; border-color: rgba(150,172,230,.18); }
+.sessao { border-color: rgba(238,106,34,.28); }
+
+/* Toques: os controlos afundam ligeiramente e soltam centelhas */
+.bt, .chip, .seta, .ic, .tab, .prato, .estado, .marca { transition: transform .15s cubic-bezier(.3,.7,.4,1), background-color .2s, color .2s, border-color .2s, box-shadow .25s; }
+.bt:active:not(:disabled), .chip:active, .seta:active:not(:disabled), .ic:active, .prato:active, .estado:active, .marca:active { transform: scale(.95); }
+.tab:active { transform: scale(.9); }
+.bt.pri { position: relative; overflow: hidden; }
+.bt.pri::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(105deg, transparent 32%, rgba(255,255,255,.75) 50%, transparent 68%); transform: translateX(-130%); }
+@media (hover: hover) { .bt.pri:hover::after { animation: risca .9s ease; } }
+.bt.pri.faisca::after { animation: risca 1.1s ease 2.2s; }
+@keyframes risca { to { transform: translateX(130%); } }
+@media (hover: hover) { .prato:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.35), 0 0 0 1px rgba(205,218,255,.15); } }
+.chip.sel { box-shadow: 0 0 14px rgba(236,232,222,.18); }
+
+/* Navegação: o separador ativo acende como uma estrela */
+.tab svg { transition: filter .3s ease; }
+.tab.ativo svg { filter: drop-shadow(0 0 6px rgba(122,162,245,.8)); animation: acende-tab .5s cubic-bezier(.3,.7,.3,1.4); }
+@keyframes acende-tab { from { transform: scale(.6) rotate(-12deg); } }
+.tab.tab-relato { background: linear-gradient(180deg, #F6F2E8, #E3D9C2); box-shadow: 0 0 0 1px rgba(230,204,147,.45), 0 0 20px rgba(230,204,147,.22); }
+.tab.tab-relato svg { color: #8c6b2e; }
+.tab.tab-relato:hover { background: linear-gradient(180deg, #FFFDF7, #EDE4CF); }
+
+/* Marca: a estrela do logótipo pisca de vez em quando */
+.marca svg path:nth-child(2) { transform-box: fill-box; transform-origin: 50% 50%; animation: pisca-logo 8s ease-in-out infinite 3s; }
+@keyframes pisca-logo { 0%, 88%, 100% { transform: scale(1) rotate(0); } 93% { transform: scale(1.45) rotate(45deg); } }
+
+/* Transições entre vistas e entre semanas */
+.vista.entra { animation: vista-entra .45s cubic-bezier(.2,.7,.2,1); }
+.vista.entra-esq { animation: semana-esq .45s cubic-bezier(.2,.7,.2,1); }
+.vista.entra-dir { animation: semana-dir .45s cubic-bezier(.2,.7,.2,1); }
+@keyframes vista-entra { from { opacity: 0; transform: translateY(12px); } }
+@keyframes semana-esq { from { opacity: 0; transform: translateX(-28px); } }
+@keyframes semana-dir { from { opacity: 0; transform: translateX(28px); } }
+
+/* Nota: o anel traça-se e um halo dourado por trás */
+.nota-anel-caixa::before { content: ''; position: absolute; inset: 12%; border-radius: 50%; background: radial-gradient(circle, rgba(201,168,106,.16), rgba(201,168,106,0) 70%); }
+.nota-anel.anim .nota-arco { stroke-dasharray: 1 2; stroke-dashoffset: 1.001; animation: traca 1.25s cubic-bezier(.3,.7,.3,1) forwards; animation-delay: calc(var(--j) * 150ms + 250ms); }
+@keyframes traca { to { stroke-dashoffset: 0; } }
+
+/* Horizonte: as estrelas do peso cintilam, as brasas tremeluzem */
+.horizonte .hz-est path { transform-box: fill-box; transform-origin: 50% 50%; animation: cintila 3.8s ease-in-out infinite; animation-delay: calc(var(--k) * .7s); }
+.horizonte.anim .hz-est path { animation: aparece .8s ease-out both, cintila 3.8s ease-in-out infinite; animation-delay: calc(var(--k) * 90ms + 950ms), calc(var(--k) * .7s + 1.8s); }
+@keyframes cintila { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .62; transform: scale(.8); } }
+.horizonte .brasa circle:nth-child(2) { transform-box: fill-box; transform-origin: 50% 50%; animation: tremeluz 1.7s ease-in-out infinite alternate; }
+@keyframes tremeluz { from { opacity: .78; transform: scale(.92); } to { opacity: 1; transform: scale(1.06); } }
+
+/* Gráficos da evolução: as barras sobem ao abrir */
+.graf.anim .barra { transform-box: fill-box; transform-origin: 50% 100%; animation: sobe .75s cubic-bezier(.2,.75,.25,1) both; animation-delay: calc(var(--i) * 28ms); }
+
+/* Relato: os cartões flutuam sobre o próprio céu */
+body.relato-aberto .topo, body.relato-aberto main, body.relato-aberto nav.barra, body.relato-aberto .aviso { visibility: hidden; }
+.rl-c h1, .rl-big { text-shadow: 0 2px 24px rgba(0,0,0,.45); }

@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="estilo.css">
 </head>
 <body>
+<canvas id="ceu" aria-hidden="true"></canvas>
 <header class="topo">
   <button class="marca" data-acao="irSemana" aria-label="Mirante, ir para a semana">
     <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><path d="M3 25L11 14L15 19L20 11L29 25Z" fill="#1d2620" stroke="#9AC74B" stroke-width="1.7" stroke-linejoin="round"/><path d="M23.5 3.5l1 2.7 2.7 1-2.7 1-1 2.7-1-2.7-2.7-1 2.7-1z" fill="#7AA2F5"/><circle cx="8.5" cy="28" r="1.9" fill="#EE6A22"/></svg>
@@ -46,10 +47,12 @@
 <div id="folha" class="folha" hidden role="dialog" aria-modal="true"></div>
 <div id="dica" class="dica" role="tooltip" hidden></div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
+<canvas id="centelhas" aria-hidden="true"></canvas>
 
 <script src="dados.js"></script>
 <script src="demo.js"></script>
 <script src="calc.js"></script>
+<script src="ceu.js"></script>
 <script src="corpo.js"></script>
 <script src="graficos.js"></script>
 <script src="app.js"></script>

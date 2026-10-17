@@ -3,7 +3,7 @@
 
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 let DADOS = null, semOff = 0, vista = 'vSemana', evoRange = ML.get('evoRange', 12), demoForcado = !!ML.get('demo', false);
-let GRAFS = {}, animarHz = true, inicial = true, abrirRelatoNoInicio = /[?&]relato=1/.test(location.search), podeInstalar = null;
+let GRAFS = {}, transicao = '', animEvo = true, animarHz = true, inicial = true, abrirRelatoNoInicio = /[?&]relato=1/.test(location.search), podeInstalar = null;
 
 /* ---------- Formatação ---------- */
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
@@ -37,8 +37,28 @@ const setaDelta = v => v > 0 ? '<svg viewBox="0 0 16 16" width="14" height="14" 
   : v < 0 ? '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v10M4 9l4 4 4-4"/></svg>'
   : '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 8h10"/></svg>';
 
+/* ---------- Cantos de astrolábio nas caixas (um desenho, espelhado para cada canto) ---------- */
+(() => {
+  const c = 27, r = 24;
+  const tiques = [198, 211, 225, 239, 252].map(g => { const a = g * Math.PI / 180, d = g === 225 ? 4.2 : 2.6;
+    return `<path d="M${(c + r * Math.cos(a)).toFixed(2)} ${(c + r * Math.sin(a)).toFixed(2)}L${(c + (r - d) * Math.cos(a)).toFixed(2)} ${(c + (r - d) * Math.sin(a)).toFixed(2)}"/>`; }).join('');
+  const CANTO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 30" fill="none" stroke-linecap="round"><g TR>` +
+    `<path d="M3 27A24 24 0 0 1 27 3" stroke="#B4C4EC" stroke-opacity=".5" stroke-width=".9"/><path d="M8.5 27A18.5 18.5 0 0 1 27 8.5" stroke="#B4C4EC" stroke-opacity=".2" stroke-width=".7"/>` +
+    `<g stroke="#B4C4EC" stroke-opacity=".55" stroke-width=".8">${tiques}</g><path d="${estrela(7.4, 7.4, 3.5)}" fill="#E6CC93" fill-opacity=".92"/>` +
+    `<circle cx="3" cy="27" r=".9" fill="#B4C4EC" fill-opacity=".65"/><circle cx="27" cy="3" r=".9" fill="#B4C4EC" fill-opacity=".65"/></g></svg>`;
+  [['tl', ''], ['tr', 'transform="translate(30 0) scale(-1 1)"'], ['bl', 'transform="translate(0 30) scale(1 -1)"'], ['br', 'transform="translate(30 30) scale(-1 -1)"']]
+    .forEach(([n, tr]) => document.documentElement.style.setProperty('--c-' + n, `url("data:image/svg+xml,${encodeURIComponent(CANTO.replace('<g TR>', `<g ${tr}>`))}")`));
+})();
+function contar(el, alvo, ms = 1100){
+  if (!el) return;
+  const t0 = performance.now(), reduz = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const passo = t => { const f = reduz ? 1 : Math.min(1, (t - t0) / ms); el.textContent = Math.round(alvo * (1 - Math.pow(1 - f, 3))); if (f < 1) requestAnimationFrame(passo); };
+  requestAnimationFrame(passo);
+}
+
 /* ---------- Arranque ---------- */
 async function iniciar(){
+  if (ML.get('ceu', true) !== false) Ceu.ligar(); else $('#ceu').hidden = true;
   try { EXDB = window.EXDB_EMBUTIDO || await (await fetch('exercicios.json')).json(); } catch(e){ EXDB = {}; }
   renderVista();
   await carregar();
@@ -104,6 +124,8 @@ function renderVista(){
   $$('nav.barra .tab[data-v]').forEach(b => b.classList.toggle('ativo', b.dataset.v === vista));
   if (!DADOS){ $('#' + vista).innerHTML = vista === 'vLigacoes' ? '' : '<div class="esqueleto"></div><div class="esqueleto" style="height:180px"></div>'; if (vista === 'vLigacoes') renderLigacoes(); return; }
   if (vista === 'vSemana') renderSemana(); else if (vista === 'vEvolucao') renderEvolucao(); else renderLigacoes();
+  const el = $('#' + vista); el.classList.remove('entra', 'entra-esq', 'entra-dir');
+  if (transicao){ void el.offsetWidth; el.classList.add(transicao); transicao = ''; }
 }
 function desenhar(raiz = document){
   raiz.querySelectorAll('[data-graf]').forEach(el => {
@@ -113,7 +135,7 @@ function desenhar(raiz = document){
     el._w = w; el.innerHTML = f(w);
   });
 }
-function irPara(v){ if (vista === v && v !== 'vSemana'){ scrollTo({top: 0, behavior: 'smooth'}); return; } vista = v; renderVista(); scrollTo({top: 0}); }
+function irPara(v){ if (vista === v && v !== 'vSemana'){ scrollTo({top: 0, behavior: 'smooth'}); return; } if (vista !== v){ transicao = 'entra'; if (v === 'vEvolucao') animEvo = true; if (v === 'vSemana') animarHz = true; } vista = v; renderVista(); scrollTo({top: 0}); }
 
 /* ---------- Semana ---------- */
 const EXPL = {
@@ -125,6 +147,7 @@ const TEND = '<b>Tendência</b><span>Suaviza as oscilações do dia a dia (água
 function renderSemana(){
   const h = hojeN(), ini = segundaDe(h) + semOff * 7, S = semana(ini), A = semana(ini - 7), min = primeiraSemana();
   const L = leituras(S, A).slice(0, 5), refs = S.dias.flatMap(d => d.refeicoes);
+  let anim = animarHz; animarHz = false;
   $('#vSemana').innerHTML = `
   <div class="cab-semana">
     <button class="seta" data-acao="semAnt" ${ini <= min ? 'disabled' : ''} aria-label="Semana anterior">${SETA_E}</button>
@@ -134,7 +157,7 @@ function renderSemana(){
   <div class="sem-grid">
     <section class="painel horiz-painel g-hz"><div class="graf-caixa" data-graf="hz"></div>
       <div class="legenda"><span>${GLIFO.peso.replace('width="22" height="22"', 'width="14" height="14"')}Peso, no céu</span><span>${GLIFO.comida.replace('width="22" height="22"', 'width="16" height="16"')}Calorias de cada dia</span><span><svg width="16" height="2" aria-hidden="true"><rect width="16" height="2" fill="${COR.ouro}"/></svg>Meta</span><span>${GLIFO.treino.replace('width="22" height="22"', 'width="16" height="16"')}Treino</span></div></section>
-    <section class="painel nota-painel g-nota">${blocoNota(S, A)}</section>
+    <section class="painel nota-painel g-nota">${blocoNota(S, A, anim)}</section>
     <div class="tres g-areas">${areaComida(S, A)}${areaTreino(S, A)}${areaPeso(S)}</div>
     <section class="painel g-leit"><h2>O que se destacou</h2>
       ${L.length ? `<ul class="leituras">${L.map(x => `<li><span class="glifo">${GLIFO[x.ic]}</span><p>${x.txt}</p></li>`).join('')}</ul>` : `<p class="nota-vazia">${S.futura ? 'Esta semana ainda não começou.' : 'Ainda há poucos dados nesta semana para tirar conclusões.'}</p>`}
@@ -143,9 +166,10 @@ function renderSemana(){
     ${D.temForja ? `<section class="painel g-rec">${blocoRecordes(S)}</section>` : ''}
     ${refs.length ? `<section class="painel g-pratos"><div class="painel-topo"><h2>A semana em pratos</h2><span class="sub">${refs.length} ${refs.length === 1 ? 'refeição' : 'refeições'}</span></div><div class="pratos">${refs.map(tilePrato).join('')}</div></section>` : ''}
   </div>`;
-  let anim = animarHz; animarHz = false;
-  GRAFS.hz = w => { const svg = svgHorizonte(S, w, anim); anim = false; return svg; };
+  GRAFS.hz = w => svgHorizonte(S, w, anim);
   desenhar($('#vSemana'));
+  if (anim && S.nota.total != null){ contar($('#vSemana .nota-num b'), S.nota.total, 1300); if (S.nota.total >= 85) Ceu.cadente(1900); }
+  anim = false;
 }
 function subSemana(S){
   if (S.emCurso){ const f = 7 - S.decorridos; return f ? `Semana em curso. ${f === 1 ? 'Falta 1 dia' : 'Faltam ' + f + ' dias'}.` : 'Último dia da semana.'; }
@@ -153,16 +177,16 @@ function subSemana(S){
   if (semOff === -1) return h === segundaDe(h) ? 'Semana passada. A nova começou hoje.' : 'Semana passada.';
   return `Há ${-semOff} semanas.`;
 }
-function blocoNota(S, A){
+function blocoNota(S, A, anim){
   const n = S.nota;
   if (n.total == null) return `<h2>Nota da semana</h2><p class="sub" style="margin-top:6px">${S.futura ? 'A semana ainda não começou.' : 'Ainda sem dados suficientes para dar nota a esta semana.'}</p>`;
   const comps = [['comida', 'Comida'], ['treino', 'Treino'], ['peso', 'Peso']].filter(([k]) => n.c[k] != null);
   return `<div class="nota">
-    <div class="nota-anel-caixa">${svgNota(n)}<div class="nota-num"><b>${n.total}</b><span>de 100</span></div></div>
+    <div class="nota-anel-caixa">${svgNota(n, 176, anim)}<div class="nota-num"><b>${anim ? 0 : n.total}</b><span>de 100</span></div></div>
     <div class="nota-txt"><h2>${n.faixa}</h2>
       <p class="sub">${n.provisoria ? 'Provisória: a semana ainda não fechou.' : A.nota.total != null ? `Na semana anterior, ${A.nota.total}.` : 'A nota desta semana.'}</p>
       <ul class="nota-comps">${comps.map(([k, nome]) => `<li data-dica="${dica(EXPL[k])}" tabindex="0"><i class="mk ${k}"></i><span>${nome}</span><b>${n.c[k]}${A.nota.c[k] != null && !n.provisoria ? `<small>antes ${A.nota.c[k]}</small>` : ''}</b></li>`).join('')}</ul></div></div>
-    <button class="bt pri larg" data-acao="relato">${ESTRELA_ICO}Ver o relato da semana</button>`;
+    <button class="bt pri larg${anim ? ' faisca' : ''}" data-acao="relato">${ESTRELA_ICO}Ver o relato da semana</button>`;
 }
 function barraMeta(nome, v, alvo, un, f = fmtInt){
   return `<div class="barra-m"><div class="lin"><span>${nome}</span><b>${f(v)} de ${f(alvo)} ${un}</b></div><div class="trilho"><i style="width:${clamp(v / alvo * 100, 2, 100)}%"></i></div></div>`;
@@ -312,14 +336,16 @@ function renderEvolucao(){
         return `<li><div><div class="nm">${esc(nomeEx(id))}</div><div class="det"><b>${fmt1(v[v.length - 1])} kg</b>, ${sinal(d)}% em ${l.length} treinos</div></div><div data-mini="${id}"></div></li>`; }).join('')}</ul>` : '<p class="nota-vazia">Ainda poucos treinos com carga neste período.</p>'}</section>` : ''}
   </div>`;
   const it = (f, extra) => SS.map(S => Object.assign({rot: rot(S.ini), atual: S.emCurso}, f(S)));
-  GRAFS.nota = w => svgBarras(it(S => ({v: S.nota.total || 0, cor: COR.ouro, dica: dicaSem(S, S.nota.total != null ? `<span><i class="mk nota"></i>Nota ${S.nota.total}, ${S.nota.faixa.toLowerCase()}${S.emCurso ? ' (provisória)' : ''}</span>` : '<span>Sem dados</span>')})), w, 170, {cor: COR.ouro, max: 100, titulo: 'Nota por semana'});
+  let anim = animEvo; animEvo = false;
+  GRAFS.nota = w => svgBarras(it(S => ({v: S.nota.total || 0, cor: COR.ouro, dica: dicaSem(S, S.nota.total != null ? `<span><i class="mk nota"></i>Nota ${S.nota.total}, ${S.nota.faixa.toLowerCase()}${S.emCurso ? ' (provisória)' : ''}</span>` : '<span>Sem dados</span>')})), w, 170, {cor: COR.ouro, max: 100, titulo: 'Nota por semana', anim});
   if (tend.length >= 2) GRAFS.peso = w => svgPeso(tend, w, 230, obj);
-  GRAFS.kcal = w => svgBarras(it(S => ({v: S.comida.kcalMed, dica: dicaSem(S, S.comida.tem ? `<span><i class="mk comida"></i>${fmtInt(S.comida.kcalMed)} kcal por dia, ${S.comida.diasReg} dias registados</span>` : '<span>Sem registo</span>')})), w, 190, {cor: COR.comida, meta: IDX.metas.kcal, rotMeta: `meta ${fmtInt(IDX.metas.kcal)}`, titulo: 'Calorias por dia'});
-  GRAFS.prot = w => svgBarras(it(S => ({v: S.comida.protMed, dica: dicaSem(S, S.comida.tem ? `<span><i class="mk comida"></i>${fmtInt(S.comida.protMed)} g por dia</span>` : '<span>Sem registo</span>')})), w, 190, {cor: COR.comida, meta: IDX.metas.prot, rotMeta: `meta ${IDX.metas.prot} g`, fmt: v => fmtInt(v) + ' g', titulo: 'Proteína por dia'});
-  GRAFS.sess = w => svgBarras(it(S => ({v: S.treino.sessoes, dica: dicaSem(S, `<span><i class="mk treino"></i>${S.treino.sessoes} ${S.treino.sessoes === 1 ? 'treino' : 'treinos'}, ${fmtHM(S.treino.minutos)}</span>`)})), w, 190, {cor: COR.treino, meta: (D.fcfg && +D.fcfg.dias) || 3, rotMeta: 'objetivo', max: 5, titulo: 'Treinos por semana'});
-  GRAFS.vol = w => svgBarras(it(S => ({v: S.treino.volume / 1000, dica: dicaSem(S, `<span><i class="mk treino"></i>${fmtTon(S.treino.volume)}, ${S.treino.series} séries</span>`)})), w, 190, {cor: COR.treino, fmt: v => fmt1(v) + ' t', fmtEixo: v => fmtInt(v) + ' t', titulo: 'Volume por semana'});
+  GRAFS.kcal = w => svgBarras(it(S => ({v: S.comida.kcalMed, dica: dicaSem(S, S.comida.tem ? `<span><i class="mk comida"></i>${fmtInt(S.comida.kcalMed)} kcal por dia, ${S.comida.diasReg} dias registados</span>` : '<span>Sem registo</span>')})), w, 190, {cor: COR.comida, meta: IDX.metas.kcal, rotMeta: `meta ${fmtInt(IDX.metas.kcal)}`, titulo: 'Calorias por dia', anim});
+  GRAFS.prot = w => svgBarras(it(S => ({v: S.comida.protMed, dica: dicaSem(S, S.comida.tem ? `<span><i class="mk comida"></i>${fmtInt(S.comida.protMed)} g por dia</span>` : '<span>Sem registo</span>')})), w, 190, {cor: COR.comida, meta: IDX.metas.prot, rotMeta: `meta ${IDX.metas.prot} g`, fmt: v => fmtInt(v) + ' g', titulo: 'Proteína por dia', anim});
+  GRAFS.sess = w => svgBarras(it(S => ({v: S.treino.sessoes, dica: dicaSem(S, `<span><i class="mk treino"></i>${S.treino.sessoes} ${S.treino.sessoes === 1 ? 'treino' : 'treinos'}, ${fmtHM(S.treino.minutos)}</span>`)})), w, 190, {cor: COR.treino, meta: (D.fcfg && +D.fcfg.dias) || 3, rotMeta: 'objetivo', max: 5, titulo: 'Treinos por semana', anim});
+  GRAFS.vol = w => svgBarras(it(S => ({v: S.treino.volume / 1000, dica: dicaSem(S, `<span><i class="mk treino"></i>${fmtTon(S.treino.volume)}, ${S.treino.series} séries</span>`)})), w, 190, {cor: COR.treino, fmt: v => fmt1(v) + ' t', fmtEixo: v => fmtInt(v) + ' t', titulo: 'Volume por semana', anim});
   GRAFS.cal = w => svgCalendario(inis[0], inis.length, w);
   desenhar($('#vEvolucao'));
+  anim = false;
   const caixa = $('#vEvolucao .rola'); if (caixa) caixa.scrollLeft = caixa.scrollWidth;
   $$('#vEvolucao [data-mini]').forEach(el => { const l = cont.get(el.dataset.mini); if (l) el.innerHTML = svgMini(l.map(x => x.v), 96, 40, COR.treino); });
 }
@@ -364,6 +390,7 @@ function renderLigacoes(){
       <div class="form"><p class="sub">Cria uma chave gratuita em <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com</a>. Fica guardada só neste dispositivo.</p>
         <label class="campo">Chave do Gemini<input id="chaveIA" type="password" value="${esc(mc.chave || '')}" autocomplete="off" spellcheck="false"></label>
         <div class="linha-bt"><button class="bt pri" data-acao="guardarChave">Guardar</button>${mc.chave ? '<button class="bt" data-acao="esquecerChave">Esquecer</button>' : ''}</div></div></details></section>
+  <section class="painel"><label class="interruptor"><span><h2>Céu animado</h2><span class="sub">Estrelas a rodar devagar, a Via Láctea e estrelas cadentes no fundo. Desliga para poupar bateria.</span></span><input type="checkbox" id="ceuLig" data-acao="ceu" ${ML.get('ceu', true) !== false ? 'checked' : ''} aria-label="Céu animado"></label></section>
   <section class="painel"><label class="interruptor"><span><h2>Dados de exemplo</h2><span class="sub">Mostra 12 semanas inventadas, para veres como fica.</span></span><input type="checkbox" data-acao="demo" ${demoForcado ? 'checked' : ''} aria-label="Mostrar dados de exemplo"></label></section>
   <section class="painel"><h2>Manutenção</h2><p class="sub" style="margin:4px 0 12px">A cache guarda o que veio do GitHub para abrir depressa e sem rede.</p>
     <div class="linha-bt"><button class="bt" data-acao="atualizar">Atualizar agora</button><button class="bt" data-acao="limparCache">Limpar a cache</button>${podeInstalar ? '<button class="bt pri" data-acao="instalar">Instalar o Mirante</button>' : ''}</div></section>
@@ -414,8 +441,8 @@ addEventListener('popstate', () => { const id = PILHA[PILHA.length - 1]; if (id)
 /* ---------- Relato ---------- */
 let RL = null;
 const FUNDOS = {
-  abre: ['#10152a', 'rgba(122,162,245,.22)'], nota: ['#16182a', 'rgba(201,168,106,.2)'], comida: ['#10180f', 'rgba(154,199,75,.22)'],
-  treino: ['#1b110c', 'rgba(238,106,34,.26)'], peso: ['#0f1629', 'rgba(122,162,245,.26)'], cruz: ['#131726', 'rgba(162,168,183,.14)'], fim: ['#14162a', 'rgba(201,168,106,.18)']
+  abre: ['rgba(12,16,32,.5)', 'rgba(122,162,245,.22)'], nota: ['rgba(20,20,36,.62)', 'rgba(201,168,106,.22)'], comida: ['rgba(12,22,12,.68)', 'rgba(154,199,75,.24)'],
+  treino: ['rgba(30,16,10,.72)', 'rgba(238,106,34,.28)'], peso: ['rgba(10,18,40,.6)', 'rgba(122,162,245,.28)'], cruz: ['rgba(16,20,34,.7)', 'rgba(162,168,183,.14)'], fim: ['rgba(18,18,36,.58)', 'rgba(201,168,106,.2)']
 };
 function cartasRelato(S, A){
   const C = [], m = S.metas, n = S.nota, c = S.comida, t = S.treino, p = S.peso;
@@ -444,7 +471,7 @@ function cartasRelato(S, A){
       const esq = GRUPOS.filter(([g]) => !t.grupos[g]).map(([g]) => g.toLowerCase());
       C.push({f: 'treino', html: `<p class="rl-sup">Músculos</p><h2>Onde o metal aqueceu</h2>${svgCorpo(t.musc)}<p class="rl-txt">Mais trabalhados: <b>${top.join(', ')}</b>.${esq.length && esq.length < 6 ? ` Ficaram de fora: ${esq.join(', ')}.` : ''}</p>`});
     }
-    if (t.recordes.length) C.push({f: 'treino', html: `<p class="rl-sup">Recordes</p><div class="rl-big">${t.recordes.length}</div><h2>${t.recordes.length === 1 ? 'recorde batido' : 'recordes batidos'}</h2>
+    if (t.recordes.length) C.push({f: 'treino', cadente: true, html: `<p class="rl-sup">Recordes</p><div class="rl-big">${t.recordes.length}</div><h2>${t.recordes.length === 1 ? 'recorde batido' : 'recordes batidos'}</h2>
       <ul class="rl-linhas">${t.recordes.slice(0, 4).map(r => `<li>${esc(r.nome)}<b>${r.comPeso ? `${fmtKg(r.serie.kg)} kg × ${r.serie.reps}` : fmtInt(r.v) + ' reps'}<small>${sinal((r.v - r.ant) / r.ant * 100)}%</small></b></li>`).join('')}</ul>`});
   }
   if (p.tFim != null && (p.delta != null || p.pesagens.length)){
@@ -475,6 +502,7 @@ function abrirRelato(){
   RL = {S, A, cartas: cartasRelato(S, A), i: 0};
   const el = $('#relato');
   el.innerHTML = `<div class="rl-prog">${RL.cartas.map(() => '<i></i>').join('')}</div><span class="rl-marca">Mirante</span><button class="rl-fechar" data-acao="fecharRelato" aria-label="Fechar o relato">${X_ICO}</button><div class="rl-c" aria-live="polite"></div>`;
+  document.body.classList.add('relato-aberto');
   abrirOverlay('relato');
   irCarta(0);
 }
@@ -496,13 +524,10 @@ function irCarta(i){
   const hz = caixa.querySelector('[data-graf="rlhz"]');
   if (hz) hz.innerHTML = svgHorizonte(RL.S, Math.max(280, hz.clientWidth || 320), true, false).replace(/data-acao="dia"/g, '');
   const cnt = caixa.querySelector('[data-conta]');
-  if (cnt){
-    const alvo = +cnt.dataset.conta, t0 = performance.now(), reduz = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const passo = t => { const f = reduz ? 1 : Math.min(1, (t - t0) / 1100); cnt.textContent = Math.round(alvo * (1 - Math.pow(1 - f, 3))); if (f < 1) requestAnimationFrame(passo); };
-    requestAnimationFrame(passo);
-  }
+  if (cnt){ contar(cnt, +cnt.dataset.conta); if (+cnt.dataset.conta >= 85) Ceu.cadente(900); }
+  if (k.cadente) Ceu.cadente(500);
 }
-function pararRelato(){ RL = null; const el = $('#relato'); el.classList.remove('pausa'); el.innerHTML = ''; }
+function pararRelato(){ document.body.classList.remove('relato-aberto'); RL = null; const el = $('#relato'); el.classList.remove('pausa'); el.innerHTML = ''; }
 // Toque: terço esquerdo recua, resto avança; manter o dedo pousado pausa.
 (() => {
   const el = $('#relato'); let t0 = 0, x0 = 0, y0 = 0;
@@ -586,11 +611,12 @@ async function partilhar(){
 const semanaAtual = () => { const ini = segundaDe(hojeN()) + semOff * 7; return [semana(ini), semana(ini - 7)]; };
 const ACOES = {
   irSemana(){ irPara('vSemana'); }, irEvolucao(){ irPara('vEvolucao'); }, irLigacoes(){ irPara('vLigacoes'); },
-  semAnt(){ semOff--; animarHz = true; renderVista(); }, semSeg(){ if (semOff < 0){ semOff++; animarHz = true; renderVista(); } },
+  semAnt(){ semOff--; animarHz = true; transicao = 'entra-esq'; renderVista(); }, semSeg(){ if (semOff < 0){ semOff++; animarHz = true; transicao = 'entra-dir'; renderVista(); } },
   relato(){ if (vista !== 'vSemana' && DADOS){ vista = 'vSemana'; renderVista(); } abrirRelato(); },
   fecharRelato(){ fecharOverlay('relato'); }, fecharFolha(){ fecharOverlay('folha'); },
   dia(el){ if (el.dataset.v) abrirDia(el.dataset.v); },
-  range(el){ evoRange = +el.dataset.v; ML.set('evoRange', evoRange); renderVista(); },
+  range(el){ evoRange = +el.dataset.v; ML.set('evoRange', evoRange); animEvo = true; renderVista(); },
+  ceu(el){ ML.set('ceu', el.checked); if (el.checked) Ceu.ligar(); else Ceu.desligar(); },
   async atualizar(){ toast('A atualizar…', 1500); await carregar(true); estadoTopo(); if (vista === 'vLigacoes') renderLigacoes(); },
   async limparCache(){ await MDB.limpar(); toast('Cache limpa. A ler de novo…'); await carregar(true); if (vista === 'vLigacoes') renderLigacoes(); },
   async demo(el){ demoForcado = el.checked; ML.set('demo', demoForcado); semOff = 0; animarHz = true; inicial = true; await carregar(true); },
@@ -670,6 +696,17 @@ document.addEventListener('pointerdown', e => {
   const lin = e.target.closest('[data-linha]'); if (lin){ moverLinha(lin, e); return; }
   const t = e.target.closest('[data-dica]');
   if (t && !t.dataset.acao) mostrarDica(DICAS.get(t.dataset.dica), e.clientX, e.clientY); else esconderDica();
+}, {passive: true});
+document.addEventListener('pointerdown', e => {
+  if (!e.isPrimary || !e.target.closest) return;
+  const el = e.target.closest('button, [data-acao], .hz-toque, a, summary');
+  const noRelato = e.target.closest('#relato');
+  if (!el && !noRelato) return;
+  if (el && el.disabled) return;
+  if (!el){ Centelhas.explodir(e.clientX, e.clientY, 'base', 6); return; }
+  const painel = el.closest('.painel'), mk = painel && painel.querySelector('.area-cab .mk');
+  const tema = el.closest('.tab-relato, [data-acao="relato"], [data-acao="partilhar"], [data-acao="vigia"], [data-acao="vigiaRelato"]') ? 'ouro' : mk ? mk.classList[1] : 'base';
+  Centelhas.explodir(e.clientX, e.clientY, tema, el.matches('.tab-relato, [data-acao="relato"]') ? 16 : 10);
 }, {passive: true});
 document.addEventListener('focusin', e => {
   const t = e.target.closest && e.target.closest('[data-dica]');

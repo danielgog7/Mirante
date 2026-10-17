@@ -112,17 +112,17 @@ function arco(cx, cy, r, a0, a1){
   const p = a => [cx + r * Math.cos(a), cy + r * Math.sin(a)], [x0, y0] = p(a0), [x1, y1] = p(a1);
   return `M${r1(x0)} ${r1(y0)}A${r} ${r} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${r1(x1)} ${r1(y1)}`;
 }
-function svgNota(nota, tam = 176){
+function svgNota(nota, tam = 176, anim = false){
   const c = tam / 2, r = c - 10, gap = .11, partes = ['comida', 'treino', 'peso'].filter(k => nota.c[k] != null);
   const tot = partes.reduce((a, k) => a + NOTA_PESOS[k], 0);
-  let a = -Math.PI / 2 + gap / 2, out = '';
+  let a = -Math.PI / 2 + gap / 2, out = '', j = 0;
   for (const k of partes){
     const span = (Math.PI * 2) * NOTA_PESOS[k] / tot - gap, f = clamp(nota.c[k] / 100, 0, 1);
     out += `<path d="${arco(c, c, r, a, a + span)}" stroke="${COR.aresta2}" stroke-width="7" fill="none" stroke-linecap="round"/>`;
-    if (f > .01) out += `<path class="nota-arco" d="${arco(c, c, r, a, a + Math.max(.02, span * f))}" stroke="${COR[k]}" stroke-width="7" fill="none" stroke-linecap="round"/>`;
+    if (f > .01) out += `<path class="nota-arco" pathLength="1" style="--j:${j++}" d="${arco(c, c, r, a, a + Math.max(.02, span * f))}" stroke="${COR[k]}" stroke-width="7" fill="none" stroke-linecap="round"/>`;
     a += span + gap;
   }
-  return `<svg class="nota-anel" viewBox="0 0 ${tam} ${tam}" width="${tam}" height="${tam}" aria-hidden="true">${out}</svg>`;
+  return `<svg class="nota-anel${anim ? ' anim' : ''}" viewBox="0 0 ${tam} ${tam}" width="${tam}" height="${tam}" aria-hidden="true">${out}</svg>`;
 }
 
 /* ---------- Linha do peso ---------- */
@@ -169,7 +169,7 @@ function svgBarras(itens, W, H, op){
     const x = L + banda * (i + .5), y = Y(it.v || 0), h = H - B - y, cor = it.cor || op.cor;
     if (it.v > 0){
       const rr = Math.min(4, h, bw / 2);
-      out.push(`<path d="M${r1(x - bw / 2)} ${H - B}V${r1(y + rr)}Q${r1(x - bw / 2)} ${r1(y)} ${r1(x - bw / 2 + rr)} ${r1(y)}H${r1(x + bw / 2 - rr)}Q${r1(x + bw / 2)} ${r1(y)} ${r1(x + bw / 2)} ${r1(y + rr)}V${H - B}Z" fill="${cor}" opacity="${it.atual ? .55 : 1}"/>`);
+      out.push(`<path class="barra" style="--i:${i}" d="M${r1(x - bw / 2)} ${H - B}V${r1(y + rr)}Q${r1(x - bw / 2)} ${r1(y)} ${r1(x - bw / 2 + rr)} ${r1(y)}H${r1(x + bw / 2 - rr)}Q${r1(x + bw / 2)} ${r1(y)} ${r1(x + bw / 2)} ${r1(y + rr)}V${H - B}Z" fill="${cor}" opacity="${it.atual ? .55 : 1}"/>`);
     }
     if (i % salto === (n - 1) % salto) out.push(`<text x="${r1(x)}" y="${H - 7}" text-anchor="middle" class="eixo">${esc(it.rot)}</text>`);
     out.push(`<rect x="${r1(L + banda * i)}" y="${T}" width="${r1(banda)}" height="${H - T - B}" fill="transparent" data-dica="${dica(it.dica)}"/>`);
@@ -181,7 +181,7 @@ function svgBarras(itens, W, H, op){
   const u = itens[n - 1];
   if (u && u.v > 0) out.push(`<text x="${r1(L + banda * (n - .5))}" y="${r1(Y(u.v) - 6)}" text-anchor="middle" class="valor">${op.fmt ? op.fmt(u.v) : fmtInt(u.v)}</text>`);
   out.push(`<line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" stroke="${COR.aresta2}"/>`);
-  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" class="graf" role="img" aria-label="${esc(op.titulo || 'Gráfico de barras')}">${out.join('')}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" class="graf${op.anim ? ' anim' : ''}" role="img" aria-label="${esc(op.titulo || 'Gráfico de barras')}">${out.join('')}</svg>`;
 }
 
 /* ---------- Calendário de constância ---------- */
