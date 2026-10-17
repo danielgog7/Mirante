@@ -235,40 +235,67 @@ function svgPeca(f){
 }
 
 /* ---------- O vigia: uma coruja num ramo, com a lua por trás ---------- */
-function svgCoruja(){
-  const olho = x => `<g transform="translate(${x} 40)"><clipPath id="cuC${x}"><circle r="8.6"/></clipPath>
-    <circle r="9.6" fill="#1a1f2d"/><circle r="8.6" fill="url(#cuOlho)"/>
-    <g class="cu-pupila"><circle r="4.3" fill="#0b0d14"/><circle cx="-2" cy="-2.3" r="1.5" fill="#fff"/></g>
-    <g clip-path="url(#cuC${x})"><rect class="cu-palpebra" x="-10" y="-10" width="20" height="20" fill="#2f3851"/></g></g>`;
-  const penas = [];
-  for (let r = 0; r < 4; r++) for (let i = 0; i < 4 - (r === 3 ? 1 : 0); i++){ const x = 38.5 + i * 7 + (r % 2 ? 3.5 : 0) - (r === 3 ? -3.5 : 0), y = 70 + r * 8; penas.push(`<path d="M${x} ${y}q3.5 3.4 7 0" fill="none" stroke="#56627f" stroke-width="1" stroke-linecap="round" opacity=".7"/>`); }
-  return `<svg class="coruja" viewBox="0 0 118 124" role="img" aria-label="O vigia, uma coruja">
+/* ---------- O vigia: uma coruja num ramo, com a lua por trás ----------
+   Estados (classes no <svg>): fala (bico e asas mexem), pensa (estrelas à volta, olhar inquieto), toque (salta e pia).
+   Humor (data-humor): feliz (olhos a sorrir, tufos erguidos), neutro, preocupado (sobrancelhas tristes, tufos caídos).
+   Os olhos seguem o dedo ou o rato através das variáveis --ex e --ey. */
+let nCoruja = 0;
+function svgCoruja(humor = 'neutro', segue = false){
+  const u = 'cu' + (++nCoruja);
+  const olho = (x, lado) => `<g transform="translate(${x} 53)">
+      <circle r="12.6" fill="#141824"/><circle r="11.2" fill="url(#${u}Iris)"/>
+      <circle r="11.2" fill="none" stroke="#7a5418" stroke-opacity=".55" stroke-width=".8"/>
+      <g class="cu-pupila"><circle r="5.6" fill="#0a0c12"/><circle cx="-2.4" cy="-2.6" r="1.9" fill="#fff"/><circle cx="2.2" cy="2" r=".8" fill="#fff" opacity=".7"/></g>
+      <g clip-path="url(#${u}C${lado})">
+        <path class="cu-palp-inf" d="M-13 13L-13 6Q0 -3 13 6L13 13Z" fill="url(#${u}Disco)"/>
+        <rect class="cu-palpebra" x="-13" y="-13" width="26" height="26" fill="#3a4561"/>
+      </g></g>`;
+  const escamas = [];
+  for (let r = 0; r < 5; r++){ const n = r % 2 ? 4 : 5, y = 98 + r * 8.5; for (let i = 0; i < n; i++){ const x = 80 + (i - (n - 1) / 2) * 8.4; escamas.push(`<path d="M${(x - 4).toFixed(1)} ${y}q4 4.2 8 0" fill="none" stroke="#6b7898" stroke-width="1.1" stroke-linecap="round" opacity="${(.75 - r * .08).toFixed(2)}"/>`); } }
+  const penasAsa = lado => [0, 1, 2, 3].map(i => `<path d="M${lado < 0 ? 52 - i * 1.2 : 108 + i * 1.2} ${96 + i * 9}q${lado * -5} 6 ${lado * -2} 12" fill="none" stroke="#11151f" stroke-width="1" opacity=".55"/>`).join('');
+  return `<svg class="coruja${segue ? ' segue' : ''}" data-humor="${humor}" viewBox="0 0 160 170" role="img" aria-label="O vigia, uma coruja">
     <defs>
-      <radialGradient id="cuCorpo" cx="50%" cy="32%" r="72%"><stop offset="0" stop-color="#46526f"/><stop offset=".55" stop-color="#2a3247"/><stop offset="1" stop-color="#171c29"/></radialGradient>
-      <radialGradient id="cuDisco" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="#65728f"/><stop offset="1" stop-color="#39425b"/></radialGradient>
-      <radialGradient id="cuOlho" cx="42%" cy="38%" r="62%"><stop offset="0" stop-color="#FFEDB8"/><stop offset=".55" stop-color="#E8BA5C"/><stop offset="1" stop-color="#9a6c20"/></radialGradient>
-      <radialGradient id="cuLua"><stop offset="0" stop-color="#E6CC93" stop-opacity=".35"/><stop offset="1" stop-color="#E6CC93" stop-opacity="0"/></radialGradient>
+      <radialGradient id="${u}Corpo" cx="50%" cy="30%" r="75%"><stop offset="0" stop-color="#55627f"/><stop offset=".55" stop-color="#303a52"/><stop offset="1" stop-color="#191e2c"/></radialGradient>
+      <radialGradient id="${u}Peito" cx="50%" cy="35%" r="70%"><stop offset="0" stop-color="#8794b3"/><stop offset="1" stop-color="#4b5671"/></radialGradient>
+      <radialGradient id="${u}Disco" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="#76839f"/><stop offset="1" stop-color="#434d66"/></radialGradient>
+      <radialGradient id="${u}Iris" cx="40%" cy="35%" r="65%"><stop offset="0" stop-color="#FFF2C4"/><stop offset=".5" stop-color="#F0C362"/><stop offset="1" stop-color="#A4741F"/></radialGradient>
+      <linearGradient id="${u}Asa" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#36405a"/><stop offset="1" stop-color="#1a1f2d"/></linearGradient>
+      <radialGradient id="${u}Lua"><stop offset="0" stop-color="#E6CC93" stop-opacity=".45"/><stop offset="1" stop-color="#E6CC93" stop-opacity="0"/></radialGradient>
+      <linearGradient id="${u}Bico" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F2D28C"/><stop offset="1" stop-color="#B98A35"/></linearGradient>
+      <clipPath id="${u}Ce"><circle r="11.2"/></clipPath><clipPath id="${u}Cd"><circle r="11.2"/></clipPath>
     </defs>
-    <circle cx="103" cy="18" r="18" fill="url(#cuLua)"/>
-    <path d="M107 9a9.5 9.5 0 1 0 0 18a7.2 7.2 0 1 1 0-18z" fill="#E6CC93" opacity=".8"/>
-    <g class="cu-estrelas"><path d="${estrela(50, 4, 3)}" fill="#E6CC93"/><path d="${estrela(86, 44, 2.4)}" fill="#A9C8FF"/><path d="${estrela(14, 46, 2.6)}" fill="#ECE8DE"/></g>
-    <path d="M3 110Q46 101 114 107" fill="none" stroke="#3a2f2a" stroke-width="5" stroke-linecap="round"/>
-    <path d="M86 105Q96 98 104 98" fill="none" stroke="#3a2f2a" stroke-width="2.4" stroke-linecap="round"/>
-    <path d="M101 98q5-6 9-2q-4 5-9 2z" fill="#2f3a2a"/>
-    <g class="cu-corpo">
-      <path d="M44 104L50 116L56 104Z" fill="#1d2333"/>
-      <path d="M50 44C71 44 79 64 77 84C75 100 65 108 50 108C35 108 25 100 23 84C21 64 29 44 50 44Z" fill="url(#cuCorpo)"/>
-      <path d="M27 60C17 73 19 96 34 104C29 90 29 75 33 62Z" fill="#1a2030"/>
-      <path d="M73 60C83 73 81 96 66 104C71 90 71 75 67 62Z" fill="#1a2030"/>
-      ${penas.join('')}
-      <g class="cu-cabeca">
-        <path d="M26 25L21 7L37 18Z" fill="#2a3247"/><path d="M74 25L79 7L63 18Z" fill="#2a3247"/>
-        <path d="M50 15C69 15 79 27 79 42C79 56 67 64 50 64C33 64 21 56 21 42C21 27 31 15 50 15Z" fill="url(#cuCorpo)"/>
-        <path d="M50 26C44 22 30 24 27 34C24 45 31 54 41 55C46 56 49 53 50 51C51 53 54 56 59 55C69 54 76 45 73 34C70 24 56 22 50 26Z" fill="url(#cuDisco)" stroke="#7a87a6" stroke-opacity=".45" stroke-width=".8"/>
-        ${olho(38)}${olho(62)}
-        <path d="M50 45L46.6 50L50 56L53.4 50Z" fill="#C9A86A"/>
+    <circle cx="136" cy="24" r="24" fill="url(#${u}Lua)"/>
+    <path d="M141 12a12.5 12.5 0 1 0 0 24a9.6 9.6 0 1 1 0-24z" fill="#E6CC93" opacity=".85"/>
+    <g class="cu-ceu"><path d="${estrela(20, 26, 2.6)}" fill="#ECE8DE" opacity=".7"/><path d="${estrela(150, 70, 2)}" fill="#A9C8FF" opacity=".7"/><path d="${estrela(12, 84, 1.8)}" fill="#E6CC93" opacity=".6"/></g>
+    <g class="cu-estrelas"><path d="${estrela(80, 2, 3.4)}" fill="#E6CC93"/><path d="${estrela(128, 56, 2.8)}" fill="#A9C8FF"/><path d="${estrela(32, 56, 3)}" fill="#ECE8DE"/></g>
+    <path d="M2 153Q60 141 158 148" fill="none" stroke="#3b2f29" stroke-width="7" stroke-linecap="round"/>
+    <path d="M4 151Q60 139 156 146" fill="none" stroke="#5a4840" stroke-width="1.4" stroke-linecap="round" opacity=".7"/>
+    <path d="M124 147Q136 138 146 136" fill="none" stroke="#3b2f29" stroke-width="3" stroke-linecap="round"/>
+    <path d="M143 136q7-8 13-3q-6 7-13 3z" fill="#2f4030"/><path d="M134 140q2-9 9-9q-1 8-9 9z" fill="#3a5039"/>
+    <g class="cu-salto">
+      <path d="M72 140L80 160L88 140Z" fill="#161b27"/>
+      <g class="cu-corpo">
+        <path d="M80 62C106 62 118 86 116 110C114 134 100 149 80 149C60 149 46 134 44 110C42 86 54 62 80 62Z" fill="url(#${u}Corpo)"/>
+        <path d="M80 86C96 86 103 100 102 116C101 132 92 142 80 142C68 142 59 132 58 116C57 100 64 86 80 86Z" fill="url(#${u}Peito)" opacity=".8"/>
+        ${escamas.join('')}
       </g>
-      <path d="M42 105l-2 4M45 105v5M48 105l2 4M53 105l-2 4M56 105v5M59 105l2 4" stroke="#C9A86A" stroke-width="1.6" stroke-linecap="round"/>
+      <g class="cu-asa-e"><path d="M54 80C36 90 32 120 46 142C50 126 54 104 60 88Z" fill="url(#${u}Asa)"/>${penasAsa(-1)}</g>
+      <g class="cu-asa-d"><path d="M106 80C124 90 128 120 114 142C110 126 106 104 100 88Z" fill="url(#${u}Asa)"/>${penasAsa(1)}</g>
+      <g class="cu-pes" fill="none" stroke="#D8B266" stroke-width="2.2" stroke-linecap="round"><path d="M70 146l-3.5 5M73 146v6M76 146l3 5"/><path d="M84 146l-3 5M87 146v6M90 146l3.5 5"/></g>
+      <g class="cu-cabeca">
+        <g class="cu-tufo-e"><path d="M51 36L40 10L64 27Z" fill="#303a52"/><path d="M50 32L43 15L58 27" fill="none" stroke="#56627f" stroke-width="1"/></g>
+        <g class="cu-tufo-d"><path d="M109 36L120 10L96 27Z" fill="#303a52"/><path d="M110 32L117 15L102 27" fill="none" stroke="#56627f" stroke-width="1"/></g>
+        <path d="M80 20C106 20 118 37 118 56C118 77 101 88 80 88C59 88 42 77 42 56C42 37 54 20 80 20Z" fill="url(#${u}Corpo)"/>
+        <path d="M80 34C71 28 52 30 48 45C44 62 55 75 70 76C76 77 79 73 80 70C81 73 84 77 90 76C105 75 116 62 112 45C108 30 89 28 80 34Z" fill="url(#${u}Disco)" stroke="#8d9ab8" stroke-opacity=".45" stroke-width=".9"/>
+        <path class="cu-sobr-e" d="M52 39Q63 33 74 38" fill="none" stroke="#a7b3cf" stroke-width="2.6" stroke-linecap="round"/>
+        <path class="cu-sobr-d" d="M86 38Q97 33 108 39" fill="none" stroke="#a7b3cf" stroke-width="2.6" stroke-linecap="round"/>
+        ${olho(64, 'e')}${olho(96, 'd')}
+        <path d="M76.6 67.5L80 75.5L83.4 67.5Z" fill="#3a2410"/>
+        <path class="cu-bico-inf" d="M76.8 67.5L80 76L83.2 67.5Q80 69.6 76.8 67.5Z" fill="#B98A35"/>
+        <path d="M80 58.5C76 60.5 74.6 64 75.2 67L80 73.5L84.8 67C85.4 64 84 60.5 80 58.5Z" fill="url(#${u}Bico)"/>
+        <path d="M79 61.5Q77 64 77.6 66.5" fill="none" stroke="#fff4d6" stroke-width=".9" stroke-linecap="round" opacity=".7"/>
+      </g>
+      <text class="cu-pio" x="16" y="44">Uu-uu!</text>
     </g>
   </svg>`;
 }

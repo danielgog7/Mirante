@@ -557,7 +557,9 @@ const ACOES = {
     catch(e){ toast(e.message, 4000); el.disabled = false; el.textContent = 'Tentar outra vez'; $$('#relato .coruja').forEach(c => c.classList.remove('pensa')); }
   },
   partilhar(){ partilhar(); },
-  coruja(el){ const c = el.querySelector('.coruja'); if (!c) return; c.classList.remove('toque'); void c.getBoundingClientRect(); c.classList.add('toque'); setTimeout(() => c.classList.remove('toque'), 800); },
+  coruja(el){ corujaToque(el); },
+  vigiaTab(el){ vigiaTab = el.dataset.v; renderVigiaHero(true); },
+  vigiaIA(){ pedirLeituraIA(); },
   async instalar(){ if (!podeInstalar) return; podeInstalar.prompt(); await podeInstalar.userChoice; podeInstalar = null; renderVista(); }
 };
 document.addEventListener('click', e => {

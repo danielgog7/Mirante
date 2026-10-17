@@ -28,8 +28,7 @@ const dicaSem = (S, linhas) => `<b>Semana de ${rotSemana(S.ini)}</b>${linhas}`;
 /* ================= INÍCIO ================= */
 function renderInicio(){
   const {S, A} = semanasAtuais(), anim = consumirAnim(), m = S.metas, c = S.comida, t = S.treino, n = S.nota;
-  const L = leituras(S, A), C = caminhoPeso(), B = balancaSemana(S), g = vigiaGuardado(S);
-  const frase = g ? esc(g.r.veredicto) : L.length ? L[0].txt : (S.futura ? 'A semana ainda não começou.' : 'Ainda há poucos dados nesta semana.');
+  const C = caminhoPeso(), B = balancaSemana(S);
   const topMusc = Object.entries(t.musc).sort((a, b) => b[1] - a[1])[0];
   const pronta = t.diasTreino >= t.alvo;
   const tiles = [];
@@ -38,9 +37,6 @@ function renderInicio(){
     : `<div class="nota-mini"><div class="nota-anel-caixa">${svgNota(n, 176, anim)}<div class="nota-num"><b>${anim ? 0 : n.total}</b><span>de 100</span></div></div>
       <div><span class="tile-cab"><i class="mk nota"></i>Nota da semana</span><h2>${n.faixa}</h2><p class="sub">${n.provisoria ? 'Provisória: a semana ainda não fechou.' : A.nota.total != null ? `Na semana anterior, ${A.nota.total}.` : ''}</p>
       <button class="bt pri${anim ? ' faisca' : ''}" data-acao="relato">${ESTRELA_ICO}Ver o relato</button></div></div>`}</section>`);
-  // Vigia
-  tiles.push(`<section class="painel tile ti-vigia"><div class="vigia-mini"><span data-acao="coruja" role="button" tabindex="0" aria-label="O vigia">${svgCoruja()}</span>
-    <div><span class="tile-cab">${g ? 'Leitura do vigia' : 'O vigia reparou'}</span><p class="${g ? 'veredicto' : 'frase'}">${frase}</p>${!D.ia.chave || S.futura || n.total == null ? '' : !g ? '<button class="bt" data-acao="vigia">Pedir a leitura da IA</button>' : g.ass !== assinaturaIA(S, A) ? '<button class="bt" data-acao="vigia">Atualizar a leitura</button>' : ''}</div></div></section>`);
   // Comida e água
   if (D.temGarfada){
     tiles.push(tile('ti-comida', 'vComida', 'Comida', 'comida', `<div class="tile-ilu prato-caixa">${svgPrato(c.tem ? c.kcalMed / m.kcal : 0, anim)}<div class="prato-num"><b>${c.tem ? fmtInt(c.kcalMed) : '—'}</b><span>kcal/dia</span></div></div>
@@ -72,18 +68,19 @@ function renderInicio(){
     tiles.push(tile('ti-rec', 'vTreino', 'Recordes', 'treino', `<div class="rec-mini"><div class="tile-ilu">${svgMedalha(R.length)}</div><div><div class="tile-num"><b>${R.length}</b><small>${R.length === 1 ? 'recorde' : 'recordes'}</small></div>
       <p class="tile-sub">${R.length ? `${esc(R[0].nome)}: <b>${R[0].comPeso ? `${fmtKg(R[0].serie.kg)} kg × ${R[0].serie.reps}` : fmtInt(R[0].v) + ' reps'}</b>` : t.melhorou ? `Melhoraste em ${t.melhorou} ${t.melhorou === 1 ? 'exercício' : 'exercícios'}.` : 'Nenhum nesta semana.'}</p></div></div>`));
   }
-  $('#vInicio').innerHTML = `${cabSemana(S)}
+  $('#vInicio').innerHTML = `<section class="painel vigia-hero" id="vigiaHero" aria-label="Leitura do vigia"></section>
+    ${cabSemana(S)}
     <div class="inicio-grid">
       <section class="painel horiz-painel ti-hz"><div class="graf-caixa" data-graf="hz"></div>
         <div class="legenda"><span>${GLIFO.peso.replace('width="22" height="22"', 'width="14" height="14"')}Peso</span><span>${GLIFO.comida.replace('width="22" height="22"', 'width="16" height="16"')}Calorias</span><span><svg width="16" height="2" aria-hidden="true"><rect width="16" height="2" fill="${COR.ouro}"/></svg>Meta</span><span>${GLIFO.treino.replace('width="22" height="22"', 'width="16" height="16"')}Treino</span></div></section>
       ${tiles.join('')}
-      <section class="painel ti-leit"><h2>O que se destacou</h2>${listaLeituras(L.slice(0, 3))}</section>
     </div>`;
   GRAFS.hz = w => svgHorizonte(S, w, anim);
   GRAFS.trilhoMini = w => svgTrilho(C, w, anim, true);
   desenhar($('#vInicio'));
   ForjaCena.animar($('#vInicio .cena-forja'));
-  if (anim && n.total != null){ contar($('#vInicio .nota-num b'), n.total, 1300); if (n.total >= 85) Ceu.cadente(1900); }
+  renderVigiaHero(anim);
+  if (anim && n.total != null){ contar($('#vInicio .ti-nota .nota-num b'), n.total, 1300); if (n.total >= 85) Ceu.cadente(1900); }
 }
 
 /* ================= COMIDA ================= */
