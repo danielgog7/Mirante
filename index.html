@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mirante</title>
+<meta name="description" content="A vista da tua semana: comida, treino e peso num só lugar.">
+<meta name="theme-color" content="#0F121A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preload" href="fraunces.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<header class="topo">
+  <button class="marca" data-acao="irSemana" aria-label="Mirante, ir para a semana">
+    <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><path d="M3 25L11 14L15 19L20 11L29 25Z" fill="#1d2620" stroke="#9AC74B" stroke-width="1.7" stroke-linejoin="round"/><path d="M23.5 3.5l1 2.7 2.7 1-2.7 1-1 2.7-1-2.7-2.7-1 2.7-1z" fill="#7AA2F5"/><circle cx="8.5" cy="28" r="1.9" fill="#EE6A22"/></svg>
+    <span>Mirante</span>
+  </button>
+  <div class="topo-dir">
+    <button class="estado" id="estado" data-acao="atualizar" aria-live="polite"><i class="ponto"></i><span></span></button>
+    <button class="ic" data-acao="irLigacoes" aria-label="Ligações e definições">
+      <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>
+    </button>
+  </div>
+</header>
+
+<div id="aviso" class="aviso" hidden></div>
+<main class="wrap">
+  <section id="vSemana" class="vista"></section>
+  <section id="vEvolucao" class="vista" hidden></section>
+  <section id="vLigacoes" class="vista" hidden></section>
+</main>
+
+<nav class="barra" aria-label="Navegação">
+  <button class="tab ativo" data-acao="irSemana" data-v="vSemana">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 19L8.5 10.5L12 15L15.5 9L21.5 19Z"/></svg><span>Semana</span></button>
+  <button class="tab tab-relato" data-acao="relato">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M12 2.5l1.9 5.3 5.6.2-4.4 3.5 1.6 5.4L12 13.8l-4.7 3.1 1.6-5.4L4.5 8l5.6-.2z"/></svg><span>Relato</span></button>
+  <button class="tab" data-acao="irEvolucao" data-v="vEvolucao">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l5-5 4 3 8-8"/><path d="M15 7h5v5"/></svg><span>Evolução</span></button>
+</nav>
+
+<div id="relato" class="relato" hidden role="dialog" aria-modal="true" aria-label="Relato da semana"></div>
+<div id="folha" class="folha" hidden role="dialog" aria-modal="true"></div>
+<div id="dica" class="dica" role="tooltip" hidden></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="dados.js"></script>
+<script src="demo.js"></script>
+<script src="calc.js"></script>
+<script src="corpo.js"></script>
+<script src="graficos.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

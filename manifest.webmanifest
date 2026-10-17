@@ -1,0 +1,25 @@
+{
+  "name": "Mirante",
+  "short_name": "Mirante",
+  "description": "A vista da tua semana: comida, treino e peso num só lugar.",
+  "lang": "pt-PT",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0F121A",
+  "theme_color": "#0F121A",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Relato da semana",
+      "short_name": "Relato",
+      "url": "./?relato=1",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
