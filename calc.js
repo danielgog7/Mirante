@@ -381,3 +381,38 @@ function resumoParaIA(S, A){
     perfil: {objetivo_peso: D.gcfg ? D.gcfg.objetivo : null, objetivo_treino: D.fcfg ? D.fcfg.objetivo : null}
   };
 }
+
+/* ---------- O caminho até ao cume (peso) ---------- */
+// Do peso de partida ao objetivo, em percentagem do caminho, com a projeção pelo ritmo atual.
+function caminhoPeso(){
+  const obj = (D.gcfg && +D.gcfg.pesoMeta) || (D.fcfg && +D.fcfg.meta) || 0;
+  if (!obj || IDX.tend.length < 2) return {obj, vazio: true};
+  let n0 = IDX.tend[0].n, k0 = IDX.tend[0].t;
+  const md = D.gcfg && D.gcfg.metaDesde;
+  if (md && /^\d{4}-\d{2}-\d{2}$/.test(md) && numDe(md) > n0){ n0 = numDe(md); const t = tendEm(n0); k0 = +D.gcfg.pesoInicio || (t ? t.t : k0); }
+  else if (D.gcfg && +D.gcfg.pesoInicio && !md) k0 = +D.gcfg.pesoInicio;
+  const tot = k0 - obj;
+  if (Math.abs(tot) < .3) return {obj, vazio: true, k0};
+  let pts = IDX.tend.filter(p => p.n >= n0).map(p => ({n: p.n, t: p.t, kg: p.kg, p: (k0 - p.t) / tot}));
+  if (!pts.length){ const u = IDX.tend[IDX.tend.length - 1]; pts = [{n: u.n, t: u.t, kg: u.kg, p: (k0 - u.t) / tot}]; }
+  pts.unshift({n: n0, t: k0, kg: k0, p: 0, partida: true});
+  const h = hojeN(), u = pts[pts.length - 1], ritmo = ritmoPeso(h), falta = obj - u.t;
+  let eta = null;
+  if (ritmo != null && Math.sign(ritmo) === Math.sign(falta) && Math.abs(ritmo) > .02){ const sem = Math.abs(falta / ritmo); if (sem < 160) eta = h + sem * 7; }
+  const pct = u.p;
+  const campos = [.25, .5, .75].map(q => {
+    const alc = pts.find(p => p.p >= q);
+    return {q, kg: k0 - q * tot, feito: !!alc, n: alc ? alc.n : (eta && pct < q ? h + (q - pct) / (1 - pct) * (eta - h) : null)};
+  });
+  return {obj, k0, n0, tot, pts, u, pct, eta, ritmo, falta, campos, chegou: pct >= 1,
+    longe: ritmo != null && Math.abs(ritmo) > .05 && Math.sign(ritmo) === -Math.sign(falta)};
+}
+
+/* ---------- A balança da semana (energia) ---------- */
+// Prato da esquerda: o que comeste por dia. Prato da direita: o que gastas (real, se houver dados; senão pela fórmula).
+function balancaSemana(S){
+  const g = gastoReal(Math.min(S.fim, hojeN() - 1));
+  const gasto = g ? g.kcal : Math.round(manutencaoFormula(Object.assign({}, DEF_G, D.gcfg || {})) / 10) * 10;
+  const ing = S.comida.tem ? S.comida.kcalMed : null;
+  return {ing, gasto, real: !!g, dif: ing != null ? ing - gasto : null, kgSem: ing != null ? (ing - gasto) * 7 / 7700 : null};
+}

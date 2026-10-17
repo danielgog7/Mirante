@@ -158,7 +158,9 @@ function renderSemana(){
     <section class="painel horiz-painel g-hz"><div class="graf-caixa" data-graf="hz"></div>
       <div class="legenda"><span>${GLIFO.peso.replace('width="22" height="22"', 'width="14" height="14"')}Peso, no céu</span><span>${GLIFO.comida.replace('width="22" height="22"', 'width="16" height="16"')}Calorias de cada dia</span><span><svg width="16" height="2" aria-hidden="true"><rect width="16" height="2" fill="${COR.ouro}"/></svg>Meta</span><span>${GLIFO.treino.replace('width="22" height="22"', 'width="16" height="16"')}Treino</span></div></section>
     <section class="painel nota-painel g-nota">${blocoNota(S, A, anim)}</section>
-    <div class="tres g-areas">${areaComida(S, A)}${areaTreino(S, A)}${areaPeso(S)}</div>
+    <div class="tres g-areas">${areaComida(S, A, anim)}${areaTreino(S, A)}${areaPeso(S)}</div>
+    ${D.pesos.length ? `<section class="painel g-trilho">${blocoTrilho()}</section>` : ''}
+    ${D.temGarfada ? `<section class="painel g-bal">${blocoBalanca(S)}</section>` : ''}
     <section class="painel g-leit"><h2>O que se destacou</h2>
       ${L.length ? `<ul class="leituras">${L.map(x => `<li><span class="glifo">${GLIFO[x.ic]}</span><p>${x.txt}</p></li>`).join('')}</ul>` : `<p class="nota-vazia">${S.futura ? 'Esta semana ainda não começou.' : 'Ainda há poucos dados nesta semana para tirar conclusões.'}</p>`}
       ${blocoVigia(S, A)}</section>
@@ -167,6 +169,8 @@ function renderSemana(){
     ${refs.length ? `<section class="painel g-pratos"><div class="painel-topo"><h2>A semana em pratos</h2><span class="sub">${refs.length} ${refs.length === 1 ? 'refeição' : 'refeições'}</span></div><div class="pratos">${refs.map(tilePrato).join('')}</div></section>` : ''}
   </div>`;
   GRAFS.hz = w => svgHorizonte(S, w, anim);
+  GRAFS.trilho = w => svgTrilho(caminhoPeso(), w, anim);
+  GRAFS.bal = w => svgBalanca(balancaSemana(S), w, anim);
   desenhar($('#vSemana'));
   if (anim && S.nota.total != null){ contar($('#vSemana .nota-num b'), S.nota.total, 1300); if (S.nota.total >= 85) Ceu.cadente(1900); }
   anim = false;
@@ -192,7 +196,7 @@ function barraMeta(nome, v, alvo, un, f = fmtInt){
   return `<div class="barra-m"><div class="lin"><span>${nome}</span><b>${f(v)} de ${f(alvo)} ${un}</b></div><div class="trilho"><i style="width:${clamp(v / alvo * 100, 2, 100)}%"></i></div></div>`;
 }
 const vazioArea = (mk, titulo, txt, bt) => `<section class="painel area"><div class="area-cab"><i class="mk ${mk}"></i><h2>${titulo}</h2></div><div class="vazio-area"><p>${txt}</p>${bt ? `<button class="bt" data-acao="irLigacoes">${bt}</button>` : ''}</div></section>`;
-function areaComida(S, A){
+function areaComida(S, A, anim){
   if (!D.temGarfada) return vazioArea('comida', 'Comida', 'Liga a Garfada para veres aqui o que comeste.', 'Ligar a Garfada');
   const c = S.comida, m = S.metas;
   if (!c.tem) return vazioArea('comida', 'Comida', S.futura ? 'A semana ainda não começou.' : 'Sem refeições completas registadas nesta semana.');
@@ -201,7 +205,7 @@ function areaComida(S, A){
     <div class="grande"><b>${fmtInt(c.kcalMed)}</b><small>kcal</small><span>por dia, em média, em ${c.diasReg} ${c.diasReg === 1 ? 'dia registado' : 'dias registados'}</span></div>
     <p class="contexto">Meta de ${fmtInt(m.kcal)}. <b>${c.naMeta} de ${c.diasReg}</b> ${c.diasReg === 1 ? 'dia' : 'dias'} perto dela.</p>
     ${barraMeta('Proteína', c.protMed, m.prot, 'g')}
-    ${c.diasAgua ? barraMeta('Água', c.aguaMed / 1000, m.agua / 1000, 'L', fmt1) : ''}
+    <div class="agua-linha">${svgJarro(c.diasAgua ? c.aguaMed / m.agua : 0, anim)}<div>${c.diasAgua ? `<b>${fmt1(c.aguaMed / 1000)}<small>L de água por dia</small></b><span>Meta de ${fmt1(m.agua / 1000)} L. Registada em ${c.diasAgua} ${c.diasAgua === 1 ? 'dia' : 'dias'}.</span>` : `<b>—</b><span>Sem registos de água nesta semana.</span>`}</div></div>
     ${dk != null ? `<p class="delta">${setaDelta(dk)}<span><b>${sinal(dk)} kcal</b> por dia face à semana anterior</span></p>` : ''}</section>`;
 }
 function areaTreino(S, A){
@@ -210,7 +214,8 @@ function areaTreino(S, A){
   const dv = A.treino.volume && t.volume ? (t.volume - A.treino.volume) / A.treino.volume * 100 : null;
   return `<section class="painel area"><div class="area-cab"><i class="mk treino"></i><h2>Treino</h2></div>
     <div class="grande"><b>${t.sessoes}</b><small>de ${t.alvo}</small><span>treinos${S.emCurso ? ' até agora' : ' na semana'}</span></div>
-    <div class="brasas" aria-hidden="true">${Array.from({length: n}, (_, i) => `<i class="${i < t.sessoes ? 'on' : ''}"></i>`).join('')}</div>
+    <div class="peca-caixa">${svgPeca(t.diasTreino / Math.max(1, t.alvo))}</div>
+    <div class="peca-txt"><b>${t.diasTreino >= t.alvo ? 'Lâmina forjada esta semana' : 'A peça da semana'}</b><span>${t.diasTreino >= t.alvo ? 'Bom trabalho, ferreiro.' : 'Cada treino molda o ferro até virar lâmina.'}</span></div>
     <dl class="numeros"><div><dt>Tempo</dt><dd>${fmtHM(t.minutos)}</dd></div><div><dt>Séries</dt><dd>${t.series}</dd></div><div><dt>Volume</dt><dd>${fmtTon(t.volume)}</dd></div></dl>
     ${dv != null && !S.emCurso ? `<p class="delta">${setaDelta(dv)}<span>Volume <b>${sinal(dv)}%</b> face à semana anterior</span></p>` : A.treino.sessoes || t.sessoes ? `<p class="delta">${setaDelta(t.sessoes - A.treino.sessoes)}<span>Na semana anterior, <b>${A.treino.sessoes}</b> ${A.treino.sessoes === 1 ? 'treino' : 'treinos'}</span></p>` : ''}</section>`;
 }
@@ -229,6 +234,34 @@ function areaPeso(S){
     ${caminho}
     ${p.semanasAteMeta && p.semanasAteMeta < 160 ? `<p class="contexto">Neste ritmo chegas lá por volta de <b>${mesAno(Date.now() + p.semanasAteMeta * 7 * DIA)}</b>.</p>` : ''}
     <p class="delta">${GLIFO.peso.replace('width="22" height="22"', 'width="14" height="14"')}<span><b>${p.pesagens.length}</b> ${p.pesagens.length === 1 ? 'pesagem' : 'pesagens'} nesta semana</span></p></section>`;
+}
+function blocoTrilho(){
+  const C = caminhoPeso(), cab = '<h2>O caminho até ao cume</h2>';
+  if (C.vazio) return `${cab}<p class="caminho-txt">${C.obj ? 'Ainda há poucas pesagens para traçar o caminho.' : 'Define um peso-objetivo na Garfada ou na Forja e o caminho até ao cume aparece aqui.'}</p><div class="trilho-caixa" data-graf="trilho"></div>`;
+  const pct = clamp(C.pct, -9, 9), eta = C.eta ? mesAno(C.eta * DIA) : '';
+  const txt = C.chegou ? `Chegaste ao cume: <b>${fmt1(C.u.t)} kg</b>, e o objetivo era ${fmt1(C.obj)} kg.`
+    : `<b>${fmtInt(Math.max(0, pct) * 100)}% do caminho</b>, de ${fmt1(C.k0)} até ${fmt1(C.obj)} kg. ` +
+      (C.eta ? `No ritmo atual, de ${sinal(C.ritmo, fmt1)} kg por semana, chegas ao cume por volta de <b>${eta}</b>.` : C.longe ? 'Nas últimas semanas o trilho desceu: estás a afastar-te do objetivo.' : 'Ainda não há ritmo suficiente para prever a chegada.');
+  return `${cab}<p class="caminho-txt">${txt}</p><div class="trilho-caixa" data-graf="trilho"></div>
+    <dl class="stats"><div><dt>Partida</dt><dd>${fmt1(C.k0)} <small>kg</small></dd></div><div data-dica="${dica(TEND)}"><dt>Hoje</dt><dd>${fmt1(C.u.t)} <small>kg</small></dd></div>
+      <div><dt>${C.chegou ? 'Para lá do cume' : 'Faltam'}</dt><dd>${fmt1(Math.abs(C.falta))} <small>kg</small></dd></div><div><dt>Chegada prevista</dt><dd>${C.chegou ? 'Já lá estás' : eta || '—'}</dd></div></dl>`;
+}
+function blocoBalanca(S){
+  const B = balancaSemana(S);
+  let ver;
+  if (B.ing == null) ver = 'Sem refeições completas nesta semana: a balança fica parada.';
+  else {
+    const d = Math.round(B.dif);
+    ver = Math.abs(d) < 80 ? 'Comes quase o mesmo que gastas: <b>equilíbrio</b>. O peso deve manter-se.'
+      : `${d < 0 ? 'Défice' : 'Excedente'} de <b>${fmtInt(Math.abs(d))} kcal por dia</b>, o que dá cerca de <b>${sinal(B.kgSem, fmt1)} kg por semana</b>.`;
+    if (S.peso.ritmo != null) ver += ` A balança real mostrou ${sinal(S.peso.ritmo, fmt1)} kg por semana.`;
+  }
+  const expl = B.real ? 'Calculado com o que comeste e com a tendência do peso nas últimas 4 semanas.' : 'Estimado pela fórmula de Mifflin-St Jeor e pelo teu nível de atividade. Fica mais certo com 2 semanas de registos e pesagens.';
+  return `<h2>A balança da semana</h2><p class="sub">O que comes contra o que gastas, em média por dia.</p>
+    <div class="graf-caixa" data-graf="bal"></div>
+    <div class="bal-pratos"><div><span><i class="mk comida"></i>Comeste</span><b>${B.ing != null ? fmtInt(B.ing) : '—'}<small>kcal</small></b></div>
+      <div data-dica="${dica(`<b>Gasto por dia</b><span>${expl}</span>`)}"><span><i class="mk peso"></i>Gastas${B.real ? '' : ' (estimativa)'}</span><b>${fmtInt(B.gasto)}<small>kcal</small></b></div></div>
+    <p class="bal-veredito">${ver}</p>`;
 }
 function blocoMusculos(S){
   const t = S.treino;
@@ -259,10 +292,11 @@ function htmlVigia(r){ return `<p class="veredicto">${esc(r.veredicto)}</p>${(r.
 function blocoVigia(S, A){
   if (S.futura || S.nota.total == null) return '';
   const g = vigiaGuardado(S);
-  const cab = `<h3>${GLIFO.nota}Leitura do vigia</h3>`;
-  if (!D.ia.chave) return `<div class="vigia">${cab}<p class="sub" style="margin-top:6px">A IA lê os números da semana e diz-te o que mais importa. Usa a chave do Gemini da Garfada ou da Forja.</p><button class="bt" data-acao="irLigacoes">Configurar a IA</button></div>`;
-  if (g) return `<div class="vigia">${cab}${htmlVigia(g.r)}${g.ass !== assinaturaIA(S, A) ? '<button class="bt" data-acao="vigia">Atualizar a leitura</button>' : ''}</div>`;
-  return `<div class="vigia">${cab}<p class="sub" style="margin-top:6px">A IA lê os números da semana e diz-te o que mais importa.</p><button class="bt" data-acao="vigia">Pedir a leitura</button></div>`;
+  const coruja = `<span data-acao="coruja" role="button" tabindex="0" aria-label="O vigia">${svgCoruja()}</span>`;
+  const cab = intro => `<div class="vigia-cab">${coruja}<div><h3>Leitura do vigia</h3>${intro}</div></div>`;
+  if (!D.ia.chave) return `<div class="vigia">${cab('<p class="sub" style="margin-top:4px">A IA lê os números da semana e diz-te o que mais importa. Usa a chave do Gemini da Garfada ou da Forja.</p>')}<button class="bt" data-acao="irLigacoes">Configurar a IA</button></div>`;
+  if (g) return `<div class="vigia">${cab(`<p class="veredicto">${esc(g.r.veredicto)}</p>`)}${(g.r.destaques || []).length ? `<ul>${g.r.destaques.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}${g.ass !== assinaturaIA(S, A) ? '<button class="bt" data-acao="vigia">Atualizar a leitura</button>' : ''}</div>`;
+  return `<div class="vigia">${cab('<p class="sub" style="margin-top:4px">A IA lê os números da semana e diz-te o que mais importa.</p>')}<button class="bt" data-acao="vigia">Pedir a leitura</button></div>`;
 }
 async function pedirVigia(S, A){
   const prompt = `És o vigia do Mirante, uma app que junta a alimentação (registada na Garfada) e os treinos de ginásio em casa (registados na Forja) de uma pessoa, para ela ver o progresso da semana.
@@ -447,12 +481,17 @@ const FUNDOS = {
 function cartasRelato(S, A){
   const C = [], m = S.metas, n = S.nota, c = S.comida, t = S.treino, p = S.peso;
   const ola = `${D.nome ? esc(D.nome) + ', eis' : 'Eis'} como ${S.emCurso ? 'está a correr' : 'correu'} a tua semana.`;
-  C.push({f: 'abre', html: `<p class="rl-sup">O relato da semana</p><h1>${rotSemana(S.ini)}</h1><div class="rl-hz" data-graf="rlhz"></div><p class="rl-txt">${ola}</p>`});
+  C.push({f: 'abre', html: `<p class="rl-sup">O relato da semana</p><h1>${rotSemana(S.ini)}</h1><div class="rl-hz" data-rl="hz"></div><p class="rl-txt">${ola}</p>`});
   if (n.total != null) C.push({f: 'nota', html: `<p class="rl-sup">A nota da semana${n.provisoria ? ', provisória' : ''}</p><div class="rl-big" data-conta="${n.total}">0</div><h2>${n.faixa}</h2>
     <ul class="rl-linhas">${[['comida', 'Comida'], ['treino', 'Treino'], ['peso', 'Peso']].filter(([k]) => n.c[k] != null).map(([k, nome]) => `<li><span><i class="mk ${k}" style="margin-right:9px"></i>${nome}</span><b>${n.c[k]}${A.nota.c[k] != null ? `<small>antes ${A.nota.c[k]}</small>` : ''}</b></li>`).join('')}</ul>`});
   if (c.tem) C.push({f: 'comida', html: `<p class="rl-sup">Comida</p><div class="rl-big">${fmtInt(c.kcalMed)}<small>kcal</small></div>
     <p class="rl-txt">por dia, em média. A meta era <b>${fmtInt(m.kcal)}</b> e ficaste perto dela em <b>${c.naMeta} de ${c.diasReg}</b> ${c.diasReg === 1 ? 'dia' : 'dias'}.</p>
     <ul class="rl-linhas"><li>Proteína<b>${fmtInt(c.protMed)} g<small>meta ${m.prot} g</small></b></li><li>Dias registados<b>${c.diasReg}<small>de ${c.fechados}</small></b></li>${c.melhorDia ? `<li>Melhor dia<b>${DIAS_SEM[c.melhorDia.i]}</b></li>` : ''}${c.diasAgua ? `<li>Água<b>${fmt1(c.aguaMed / 1000)} L<small>meta ${fmt1(m.agua / 1000)} L</small></b></li>` : ''}</ul>`});
+  if (c.tem){
+    const B = balancaSemana(S), d = Math.round(B.dif);
+    C.push({f: 'comida', html: `<p class="rl-sup">A balança da semana</p><h2>${Math.abs(d) < 80 ? 'Equilíbrio entre o que comes e o que gastas' : `${d < 0 ? 'Défice' : 'Excedente'} de ${fmtInt(Math.abs(d))} kcal por dia`}</h2>
+      <div class="rl-graf" data-rl="bal"></div><ul class="rl-linhas"><li>Comeste<b>${fmtInt(B.ing)} kcal</b></li><li>Gastas<b>${fmtInt(B.gasto)} kcal<small>${B.real ? 'real' : 'estimativa'}</small></b></li></ul>`});
+  }
   const refs = S.dias.flatMap(d => d.refeicoes);
   if (refs.length >= 4){
     const cont = {}; for (const r of refs) cont[r.prato] = (cont[r.prato] || 0) + 1;
@@ -463,7 +502,7 @@ function cartasRelato(S, A){
   if (D.temForja){
     const carros = Math.floor(t.volume / 1200);
     C.push({f: 'treino', html: `<p class="rl-sup">Treino</p><div class="rl-big">${t.sessoes}<small>de ${t.alvo}</small></div><p class="rl-txt">${t.sessoes === 1 ? 'treino feito' : 'treinos feitos'}${S.emCurso ? ' até agora' : ''}.</p>
-      <div class="rl-brasas">${Array.from({length: Math.max(t.alvo, t.sessoes)}, (_, i) => `<i class="${i < t.sessoes ? 'on' : ''}"></i>`).join('')}</div>
+      <div class="rl-peca">${svgPeca(t.diasTreino / Math.max(1, t.alvo))}</div>
       ${t.sessoes ? `<ul class="rl-linhas"><li>Tempo a treinar<b>${fmtHM(t.minutos)}</b></li><li>Séries<b>${t.series}</b></li><li>Volume<b>${fmtTon(t.volume)}</b></li></ul>
       ${carros >= 1 ? `<p class="rl-txt">Levantaste, no total, o peso de <b>${carros} ${carros === 1 ? 'carro pequeno' : 'carros pequenos'}</b>.</p>` : ''}` : ''}`});
     if (t.sessoes){
@@ -478,7 +517,7 @@ function cartasRelato(S, A){
     C.push({f: 'peso', html: `<p class="rl-sup">Peso</p><div class="rl-big">${p.delta != null ? sinal(p.delta, fmt1) : fmt1(p.tFim)}<small>kg</small></div>
       <p class="rl-txt">${p.delta != null ? `Na tendência, de <b>${fmt1(p.tIni)}</b> para <b>${fmt1(p.tFim)} kg</b>.` : `Tendência em <b>${fmt1(p.tFim)} kg</b>.`} ${p.ritmo != null ? `O ritmo atual é de <b>${sinal(p.ritmo, fmt1)} kg por semana</b>.` : ''}</p>
       ${p.semanasAteMeta && p.semanasAteMeta < 160 ? `<p class="rl-txt">Se continuares assim, chegas aos <b>${fmt1(p.objetivo)} kg</b> por volta de <b>${mesAno(Date.now() + p.semanasAteMeta * 7 * DIA)}</b>.</p>` : ''}
-      <ul class="rl-linhas"><li>Pesagens<b>${p.pesagens.length}</b></li></ul>`});
+      ${caminhoPeso().vazio ? `<ul class="rl-linhas"><li>Pesagens<b>${p.pesagens.length}</b></li></ul>` : '<div class="rl-graf" data-rl="trilho"></div>'}`});
   }
   const L = leituras(S, A).slice(0, 3);
   if (L.length) C.push({f: 'cruz', html: `<p class="rl-sup">O que os números dizem juntos</p><h2>Comida, treino e peso, lado a lado</h2><ul class="leituras" style="margin-top:14px">${L.map(x => `<li><span class="glifo">${GLIFO[x.ic]}</span><p style="font-size:16px">${x.txt}</p></li>`).join('')}</ul>`});
@@ -488,7 +527,7 @@ function cartasRelato(S, A){
     if (lin.length >= 2) C.push({f: 'cruz', html: `<p class="rl-sup">Face à semana anterior</p><h2>O que mudou</h2><ul class="rl-linhas">${lin.map(([nm, a, b, f]) => `<li>${nm}<b>${f(b)}<small>antes ${f(a)}</small></b></li>`).join('')}</ul>`});
   }
   const g = vigiaGuardado(S);
-  if (D.ia.chave && n.total != null) C.push({f: 'nota', vigia: true, html: `<p class="rl-sup">Leitura do vigia</p>${g ? `<h2 class="veredicto" style="font-style:italic">${esc(g.r.veredicto)}</h2><ul class="rl-linhas">${(g.r.destaques || []).map(x => `<li style="display:block;line-height:1.5">${esc(x)}</li>`).join('')}</ul>`
+  if (D.ia.chave && n.total != null) C.push({f: 'nota', vigia: true, html: `<div class="rl-coruja">${svgCoruja()}</div><p class="rl-sup">Leitura do vigia</p>${g ? `<h2 class="veredicto" style="font-style:italic">${esc(g.r.veredicto)}</h2><ul class="rl-linhas">${(g.r.destaques || []).map(x => `<li style="display:block;line-height:1.5">${esc(x)}</li>`).join('')}</ul>`
     : `<h2>A IA lê a tua semana</h2><p class="rl-txt">Junta os números da comida, do treino e do peso e diz-te o que mais importa.</p><div class="rl-acoes"><button class="bt pri" data-acao="vigiaRelato">Pedir a leitura</button></div>`}`});
   const F = g && g.r.focos && g.r.focos.length ? g.r.focos : focos(S).map(x => x[1]);
   C.push({f: 'fim', html: `<p class="rl-sup">Para a próxima semana</p><h2>Três focos</h2><ol class="rl-focos">${F.map(x => `<li><span>${esc(x)}</span></li>`).join('')}</ol>
@@ -521,8 +560,10 @@ function irCarta(i){
   const dur = k.vigia || i === RL.cartas.length - 1 ? 0 : Math.min(14, 6 + k.html.replace(/<[^>]+>/g, '').length / 55);
   el.style.setProperty('--dur', dur ? dur + 's' : '9999s');
   barra.onanimationend = () => { if (RL && RL.i === i && dur) irCarta(i + 1); };
-  const hz = caixa.querySelector('[data-graf="rlhz"]');
-  if (hz) hz.innerHTML = svgHorizonte(RL.S, Math.max(280, hz.clientWidth || 320), true, false).replace(/data-acao="dia"/g, '');
+  caixa.querySelectorAll('[data-rl]').forEach(el => {
+    const w = Math.max(280, el.clientWidth || 320), k = el.dataset.rl;
+    el.innerHTML = k === 'hz' ? svgHorizonte(RL.S, w, true, false).replace(/data-acao="dia"/g, '') : k === 'bal' ? svgBalanca(balancaSemana(RL.S), w, true) : svgTrilho(caminhoPeso(), w, true);
+  });
   const cnt = caixa.querySelector('[data-conta]');
   if (cnt){ contar(cnt, +cnt.dataset.conta); if (+cnt.dataset.conta >= 85) Ceu.cadente(900); }
   if (k.cadente) Ceu.cadente(500);
@@ -637,15 +678,16 @@ const ACOES = {
   async guardarChave(){ const k = $('#chaveIA').value.trim(); const mc = ML.get('cfg', {}) || {}; mc.chave = k; if (!mc.modelo) mc.modelo = 'gemini-flash-latest'; ML.set('cfg', mc); toast(k ? 'Chave guardada.' : 'Chave apagada.'); await carregar(false); renderVista(); },
   async esquecerChave(){ const mc = ML.get('cfg', {}) || {}; delete mc.chave; ML.set('cfg', mc); await carregar(false); renderVista(); },
   async vigia(el){
-    const [S, A] = semanaAtual(); el.disabled = true; el.textContent = 'O vigia está a ler a semana…';
-    try { await pedirVigia(S, A); renderVista(); } catch(e){ toast(e.message, 4000); el.disabled = false; el.textContent = 'Tentar outra vez'; }
+    const [S, A] = semanaAtual(); el.disabled = true; el.textContent = 'O vigia está a ler a semana…'; $$('.coruja').forEach(c => c.classList.add('pensa'));
+    try { await pedirVigia(S, A); renderVista(); } catch(e){ toast(e.message, 4000); el.disabled = false; el.textContent = 'Tentar outra vez'; $$('.coruja').forEach(c => c.classList.remove('pensa')); }
   },
   async vigiaRelato(el){
-    if (!RL) return; el.disabled = true; el.textContent = 'O vigia está a ler a semana…';
+    if (!RL) return; el.disabled = true; el.textContent = 'O vigia está a ler a semana…'; $$('#relato .coruja').forEach(c => c.classList.add('pensa'));
     try { await pedirVigia(RL.S, RL.A); const i = RL.i; RL.cartas = cartasRelato(RL.S, RL.A); irCarta(i); }
-    catch(e){ toast(e.message, 4000); el.disabled = false; el.textContent = 'Tentar outra vez'; }
+    catch(e){ toast(e.message, 4000); el.disabled = false; el.textContent = 'Tentar outra vez'; $$('#relato .coruja').forEach(c => c.classList.remove('pensa')); }
   },
   partilhar(){ partilhar(); },
+  coruja(el){ const c = el.querySelector('.coruja'); if (!c) return; c.classList.remove('toque'); void c.getBoundingClientRect(); c.classList.add('toque'); setTimeout(() => c.classList.remove('toque'), 800); },
   async instalar(){ if (!podeInstalar) return; podeInstalar.prompt(); await podeInstalar.userChoice; podeInstalar = null; renderVista(); }
 };
 document.addEventListener('click', e => {

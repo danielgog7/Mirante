@@ -429,3 +429,94 @@ nav.barra { position: fixed; left: 50%; transform: translateX(-50%); width: max-
 /* Relato: os cartões flutuam sobre o próprio céu */
 body.relato-aberto .topo, body.relato-aberto main, body.relato-aberto nav.barra, body.relato-aberto .aviso { visibility: hidden; }
 .rl-c h1, .rl-big { text-shadow: 0 2px 24px rgba(0,0,0,.45); }
+
+/* ---------- Ilustrações ---------- */
+/* Jarro de água */
+.agua-linha { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 14px; align-items: center; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--aresta); }
+.jarro { width: 62px; height: auto; display: block; overflow: visible; }
+.agua-linha b { font: 450 24px/1.1 var(--serif); font-variation-settings: 'opsz' 48; }
+.agua-linha b small { font: 400 14px var(--sans); color: var(--nevoa); margin-left: 4px; }
+.agua-linha span { display: block; color: var(--nevoa); font-size: 13.5px; margin-top: 3px; }
+.ja-onda { animation: onda 3.2s linear infinite; }
+.ja-onda.tras { animation-duration: 4.6s; animation-direction: reverse; }
+@keyframes onda { to { transform: translateX(-38px); } }
+.ja-bolha { fill: #d6f3ff; opacity: 0; animation: bolha 3.6s ease-in infinite; }
+@keyframes bolha { 0% { opacity: 0; transform: translateY(0); } 15% { opacity: .7; } 100% { opacity: 0; transform: translateY(-48px); } }
+.jarro.anim .ja-nivel { animation: enche-jarro 1.6s cubic-bezier(.3,.7,.3,1) .3s both; }
+@keyframes enche-jarro { from { transform: translateY(var(--h)); } }
+
+/* Balança */
+@property --a { syntax: '<angle>'; inherits: true; initial-value: 0deg; }
+.balanca { display: block; width: 100%; height: auto; overflow: visible; }
+.bal-braco { transform-box: view-box; transform: rotate(var(--a)); }
+.bal-prato { transform-box: view-box; transform: rotate(calc(-1 * var(--a))); }
+.balanca.anim .bal-braco { animation: oscila 2.8s cubic-bezier(.25,.6,.3,1) .2s both; }
+@keyframes oscila { 0% { --a: 0deg; } 20% { --a: calc(var(--af) * 1.7); } 42% { --a: calc(var(--af) * .45); } 62% { --a: calc(var(--af) * 1.2); } 82% { --a: calc(var(--af) * .92); } 100% { --a: var(--af); } }
+.bal-rot { font: 500 10.5px var(--sans); fill: var(--bruma); }
+.bal-pratos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; text-align: center; margin-top: -4px; }
+.bal-pratos span { display: flex; align-items: center; justify-content: center; gap: 7px; font-size: 13px; color: var(--nevoa); }
+.bal-pratos b { display: block; font: 400 26px/1.15 var(--serif); font-variation-settings: 'opsz' 60; margin-top: 2px; }
+.bal-pratos b small { font: 13px var(--sans); color: var(--bruma); margin-left: 3px; }
+.bal-veredito { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--aresta); font-size: 14px; color: var(--nevoa); }
+.bal-veredito b { color: var(--luar); font-weight: 600; }
+
+/* Trilho até ao cume */
+.trilho .tr-rot { font: 11px var(--sans); fill: var(--bruma); font-variant-numeric: tabular-nums; }
+.trilho .tr-rot.forte { fill: var(--luar); font-weight: 600; }
+.tr-bandeira { animation: bandeira 2.4s ease-in-out infinite alternate; transform-box: view-box; }
+@keyframes bandeira { from { transform: skewY(-4deg) scaleX(.92); } to { transform: skewY(3deg) scaleX(1.04); } }
+.tr-cam circle:first-child { animation: lanterna 2.6s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 50% 50%; }
+@keyframes lanterna { from { opacity: .75; transform: scale(.92); } to { opacity: 1; transform: scale(1.08); } }
+.trilho.anim .tr-feito { stroke-dasharray: 1 2; stroke-dashoffset: 1.001; animation: traca 2s cubic-bezier(.4,.1,.3,1) .2s forwards; }
+.trilho.anim .tr-pegada, .trilho.anim .tr-campo { animation: aparece .5s ease-out both; animation-delay: 1.6s; }
+.trilho.anim .tr-cam { animation: aparece .7s ease-out 1.9s both; }
+.trilho.anim .tr-proj { animation: aparece 1s ease-out 2.2s both; }
+.caminho-txt { font-size: 14.5px; color: var(--nevoa); margin: 4px 0 12px; line-height: 1.55; }
+.caminho-txt b { color: var(--luar); font-weight: 600; }
+.trilho-caixa { margin: 0 -18px; overflow: hidden; border-top: 1px solid var(--aresta); border-bottom: 1px solid var(--aresta); line-height: 0; }
+.trilho-caixa .graf { overflow: hidden; }
+.g-trilho .stats { margin: 14px 0 0; }
+
+/* A peça da semana (Forja) */
+.peca-caixa { margin: 12px -6px 0; }
+.peca { display: block; width: 100%; height: auto; }
+.pf-faisca { animation: faisca 1.8s ease-in-out infinite; }
+@keyframes faisca { 0%, 100% { opacity: .2; } 50% { opacity: 1; } }
+.pf-calor { animation: calor 2.2s ease-in-out infinite alternate; }
+@keyframes calor { from { opacity: .65; } to { opacity: 1; } }
+.peca.pronta .pf-risco { animation: risco-lamina 3.2s ease-in-out infinite 1s; }
+@keyframes risco-lamina { 0% { transform: skewX(-25deg) translateX(0); } 45%, 100% { transform: skewX(-25deg) translateX(330px); } }
+.peca-txt { text-align: center; margin-top: 2px; }
+.peca-txt b { display: block; font: 500 16px var(--serif); }
+.peca-txt span { font-size: 13px; color: var(--nevoa); }
+
+/* O vigia */
+.vigia-cab { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 14px; align-items: center; }
+.coruja { width: 96px; height: auto; display: block; overflow: visible; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.cu-palpebra { transform-box: fill-box; transform-origin: 50% 0; transform: scaleY(0); animation: pestaneja 6.5s infinite; }
+@keyframes pestaneja { 0%, 93%, 100% { transform: scaleY(0); } 95.5% { transform: scaleY(1); } }
+.cu-cabeca { transform-box: view-box; transform-origin: 50px 62px; animation: inclina 12s ease-in-out infinite 3s; }
+@keyframes inclina { 0%, 78%, 100% { transform: rotate(0); } 83% { transform: rotate(-10deg); } 90% { transform: rotate(5deg); } 95% { transform: rotate(0); } }
+.cu-estrelas { opacity: 0; transition: opacity .4s; transform-box: view-box; transform-origin: 50px 42px; }
+.coruja.pensa .cu-estrelas { opacity: 1; animation: orbita 2.6s linear infinite; }
+@keyframes orbita { to { transform: rotate(360deg); } }
+.coruja.pensa .cu-pupila { animation: olha 1.4s ease-in-out infinite; }
+@keyframes olha { 0%, 100% { transform: translateX(-2.6px); } 50% { transform: translateX(2.6px); } }
+.coruja.pensa .cu-cabeca { animation: pensa 1.4s ease-in-out infinite; }
+@keyframes pensa { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+.coruja.toque .cu-cabeca { animation: espanto .7s cubic-bezier(.3,.7,.3,1.5); }
+@keyframes espanto { 30% { transform: rotate(-14deg) translateY(-2px); } 65% { transform: rotate(9deg); } }
+.coruja.toque .cu-palpebra { animation: pisca2 .7s; }
+@keyframes pisca2 { 0%, 100% { transform: scaleY(0); } 20%, 30% { transform: scaleY(1); } 45% { transform: scaleY(0); } 60%, 70% { transform: scaleY(1); } }
+.rl-coruja { width: 140px; margin-bottom: 6px; }
+.rl-c .coruja { pointer-events: none; }
+
+@media (min-width: 980px) {
+  .sem-grid { grid-template-areas: "hz nota" "areas areas" "trilho bal" "leit musc" "pratos rec"; }
+  .g-trilho { grid-area: trilho; } .g-bal { grid-area: bal; }
+}
+@media (prefers-reduced-motion: reduce) { .ja-onda, .ja-bolha, .tr-bandeira, .cu-palpebra, .cu-cabeca, .pf-faisca, .pf-calor { animation: none !important; } }
+.rl-graf { margin: 16px -10px 0; border-radius: 16px; overflow: hidden; line-height: 0; }
+.rl-graf svg { width: 100%; height: auto; max-height: 36vh; }
+.rl-peca { margin: 6px -10px 0; }
+.rl-peca .peca { max-height: 22vh; }
