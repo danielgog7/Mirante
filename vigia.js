@@ -560,14 +560,7 @@ Analisa três períodos: hoje (o dia pode estar em curso; tem em conta a hora), 
 Regras: usa os números dos dados; cruza comida, treino e peso quando fizer sentido (por exemplo, proteína nos dias de treino, calorias e ritmo do peso); não inventes dados; se não houver negativos reais, diz o que pode ficar ainda melhor; não dês conselhos médicos. A análise automática serve de base, mas melhora-a e escreve-a à tua maneira.
 Dados: ${JSON.stringify(dados)}`;
   try {
-    const modelo = String(D.ia.modelo || 'gemini-flash-latest').replace(/^models\//, '');
-    let r;
-    try { r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelo)}:generateContent`, {method: 'POST', headers: {'Content-Type': 'application/json', 'x-goog-api-key': D.ia.chave},
-      body: JSON.stringify({contents: [{role: 'user', parts: [{text: prompt}]}], generationConfig: {temperature: .5, responseMimeType: 'application/json'}})}); }
-    catch(e){ throw new Error('Sem ligação à internet.'); }
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok){ const msg = (j.error && j.error.message) || ''; throw new Error(r.status === 429 ? 'Limite gratuito do Gemini atingido. Mostro a análise automática.' : /api key/i.test(msg) || r.status === 401 || r.status === 403 ? 'Chave do Gemini inválida.' : 'Erro do Gemini: ' + (msg || r.status)); }
-    const txt = ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []).filter(p => !p.thought).map(p => p.text || '').join('');
+    const txt = await IA.pedir({texto: prompt, json: true, chave: D.ia.chave, modelo: D.ia.modelo, temperatura: .5});
     const a = txt.indexOf('{'), b = txt.lastIndexOf('}'); const o2 = JSON.parse(txt.slice(a, b + 1));
     const limpa = x => x && typeof x === 'object' ? {veredicto: String(x.veredicto || '').slice(0, 320), positivos: (x.positivos || []).slice(0, 4).map(y => String(y).slice(0, 280)), negativos: (x.negativos || []).slice(0, 4).map(y => String(y).slice(0, 280)), conselho: String(x.conselho || '').slice(0, 320)} : null;
     const res = {dia: limpa(o2.dia), semana: limpa(o2.semana), mes: limpa(o2.mes)};

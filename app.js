@@ -220,23 +220,7 @@ Escreve em português de Portugal (PT-PT), com tom direto e caloroso de treinado
 Analisa a semana com base nestes dados e responde só com JSON no formato {"veredicto": "uma frase curta que resume a semana", "destaques": ["2 a 3 frases curtas, com números concretos, sobre o que correu bem e o que correu pior, cruzando comida, treino e peso quando fizer sentido"], "focos": ["exatamente 3 ações concretas e específicas para a próxima semana"]}.
 Regras: não inventes dados que não estão aqui; se a semana estiver em curso, fala do que já aconteceu; não dês conselhos médicos.
 Dados: ${JSON.stringify(resumoParaIA(S, A))}`;
-  const modelo = String(D.ia.modelo || 'gemini-flash-latest').replace(/^models\//, '');
-  let r;
-  try {
-    r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelo)}:generateContent`, {
-      method: 'POST', headers: {'Content-Type': 'application/json', 'x-goog-api-key': D.ia.chave},
-      body: JSON.stringify({contents: [{role: 'user', parts: [{text: prompt}]}], generationConfig: {temperature: 0.4, responseMimeType: 'application/json'}})
-    });
-  } catch(e){ throw new Error('Sem ligação à internet.'); }
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok){
-    const msg = (j.error && j.error.message) || '';
-    if (r.status === 429) throw new Error('Limite gratuito do Gemini atingido. Tenta mais tarde.');
-    if (r.status === 401 || r.status === 403 || /api key/i.test(msg)) throw new Error('Chave do Gemini inválida. Verifica em Ligações.');
-    if (r.status === 404) throw new Error('Modelo do Gemini não encontrado.');
-    throw new Error('Erro do Gemini: ' + (msg || r.status));
-  }
-  const txt = ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []).filter(p => !p.thought).map(p => p.text || '').join('');
+  const txt = await IA.pedir({texto: prompt, json: true, chave: D.ia.chave, modelo: D.ia.modelo, temperatura: .4});
   const a = txt.indexOf('{'), b = txt.lastIndexOf('}');
   let o; try { o = JSON.parse(txt.slice(a, b + 1)); } catch(e){ throw new Error('A IA respondeu num formato inválido. Tenta outra vez.'); }
   const res = {veredicto: String(o.veredicto || '').slice(0, 300), destaques: (o.destaques || []).slice(0, 3).map(x => String(x).slice(0, 300)), focos: (o.focos || []).slice(0, 3).map(x => String(x).slice(0, 300))};
@@ -290,6 +274,7 @@ function renderLigacoes(){
       <div class="form"><p class="sub">Cria uma chave gratuita em <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com</a>. Fica guardada só neste dispositivo.</p>
         <label class="campo">Chave do Gemini<input id="chaveIA" type="password" value="${esc(mc.chave || '')}" autocomplete="off" spellcheck="false"></label>
         <div class="linha-bt"><button class="bt pri" data-acao="guardarChave">Guardar</button>${mc.chave ? '<button class="bt" data-acao="esquecerChave">Esquecer</button>' : ''}</div></div></details></section>
+  <section class="painel"><h2>IA de reserva (Groq)</h2>${IA.htmlGroq({sub: 'sub', pri: 'bt pri', campo: 'campo'})}</section>
   <section class="painel"><label class="interruptor"><span><h2>Céu animado</h2><span class="sub">Estrelas a rodar devagar, a Via Láctea e estrelas cadentes no fundo. Desliga para poupar bateria.</span></span><input type="checkbox" id="ceuLig" data-acao="ceu" ${ML.get('ceu', true) !== false ? 'checked' : ''} aria-label="Céu animado"></label></section>
   <section class="painel"><label class="interruptor"><span><h2>Dados de exemplo</h2><span class="sub">Mostra 12 semanas inventadas, para veres como fica.</span></span><input type="checkbox" data-acao="demo" ${demoForcado ? 'checked' : ''} aria-label="Mostrar dados de exemplo"></label></section>
   <section class="painel"><h2>Manutenção</h2><p class="sub" style="margin:4px 0 12px">A cache guarda o que veio do GitHub para abrir depressa e sem rede.</p>
