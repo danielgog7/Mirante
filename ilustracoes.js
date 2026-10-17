@@ -35,7 +35,7 @@ function svgJarro(frac, anim){
 }
 
 /* ---------- A balança da semana: constelação da Balança, com pratos, correntes e fiel ---------- */
-function svgBalanca(B, W, anim){
+function svgBalanca(B, W, anim, compacto){
   const H = 244, cx = W / 2, py = 72, half = Math.min(W * .37, 150), out = [];
   const ang = B.ing == null ? 0 : -clamp(B.dif / 600, -1, 1) * 15;   // graus; positivo = desce à direita (gastas mais)
   const sr = semente(7);
@@ -55,7 +55,7 @@ function svgBalanca(B, W, anim){
     out.push(`<path d="M${fx(cx + rD * Math.sin(r))} ${fx(py - rD * Math.cos(r))}L${fx(cx + (rD - l) * Math.sin(r))} ${fx(py - (rD - l) * Math.cos(r))}" stroke="${a === 0 ? COR.ouro : '#B4C4EC'}" stroke-opacity="${a === 0 ? .9 : .5}" stroke-width="1"/>`);
   }
   const [lx, ly] = tique(-22), [rx, ry] = tique(22);
-  out.push(`<text x="${fx(lx - 6)}" y="${fx(ly - 2)}" text-anchor="end" class="bal-rot">excedente</text><text x="${fx(rx + 6)}" y="${fx(ry - 2)}" class="bal-rot">défice</text>`);
+  if (!compacto) out.push(`<text x="${fx(lx - 6)}" y="${fx(ly - 2)}" text-anchor="end" class="bal-rot">excedente</text><text x="${fx(rx + 6)}" y="${fx(ry - 2)}" class="bal-rot">défice</text>`);
   // Braço, fiel e pratos (rodam juntos; os pratos mantêm-se na vertical)
   const prato = (x, lado) => {
     const y0 = py + 78, cor = lado === 'e' ? COR.comida : COR.peso, n = lado === 'e' ? B.ing : B.gasto;
@@ -80,7 +80,7 @@ function svgBalanca(B, W, anim){
     <path d="M${fx(cx - half)} ${py}L${fx(cx + half)} ${py}" stroke="url(#baBraco)" stroke-width="2.4" stroke-linecap="round"/>
     ${prato(cx - half, 'e')}${prato(cx + half, 'd')}</g>`);
   out.push(`<circle cx="${fx(cx)}" cy="${py}" r="14" fill="url(#baBrilho)"/><path d="${estrela(cx, py, 7.5)}" fill="${COR.ouro}"/>`);
-  return `<svg class="balanca${anim && window.CSS && CSS.registerProperty ? ' anim' : ''}" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Balança: o que comeste contra o que gastas">
+  return `<svg class="balanca${anim && window.CSS && CSS.registerProperty ? ' anim' : ''}" viewBox="0 0 ${W} ${H}"${compacto ? '' : ` width="${W}" height="${H}"`} role="img" aria-label="Balança: o que comeste contra o que gastas">
     <defs><radialGradient id="baBrilho"><stop offset="0" stop-color="#E6CC93" stop-opacity=".55"/><stop offset="1" stop-color="#E6CC93" stop-opacity="0"/></radialGradient>
       <radialGradient id="baChao"><stop offset="0" stop-color="#7AA2F5" stop-opacity=".18"/><stop offset="1" stop-color="#7AA2F5" stop-opacity="0"/></radialGradient>
       <radialGradient id="baGrao" cx="40%" cy="35%"><stop offset="0" stop-color="#E4FFAE"/><stop offset=".6" stop-color="${COR.comida}"/><stop offset="1" stop-color="#4d6a22"/></radialGradient>
@@ -93,8 +93,8 @@ function svgBalanca(B, W, anim){
 /* ---------- O trilho até ao cume ----------
    Tempo na horizontal, percentagem do caminho na altura. O trilho percorrido é a tendência real do peso;
    a linha pontilhada é a projeção pelo ritmo atual; as curvas de nível marcam 25, 50 e 75% do caminho. */
-function svgTrilho(C, W, anim){
-  const H = W < 560 ? 300 : 340, L = 50, R = 24, T = 52, B = 42, base = H - B, out = [];
+function svgTrilho(C, W, anim, compacto){
+  const H = compacto ? 196 : W < 560 ? 300 : 340, L = compacto ? 16 : 50, R = compacto ? 14 : 24, T = compacto ? 40 : 52, B = compacto ? 18 : 42, base = H - B, out = [];
   const rnd = semente(31);
   const defs = `<defs>
     <linearGradient id="trCeu" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#18203a"/><stop offset="1" stop-color="#121725"/></linearGradient>
@@ -146,10 +146,10 @@ function svgTrilho(C, W, anim){
   // Curvas de nível: 25, 50 e 75% do caminho (acampamentos)
   out.push(`<g clip-path="url(#trClip)">${C.campos.map(c => `<path d="M0 ${fx(Y(c.q))}H${W}" stroke="#B4C4EC" stroke-opacity=".2" stroke-width="1" stroke-dasharray="3 4"/>`).join('')}</g>`);
   // Eixo: quilos à esquerda
-  out.push(`<text x="${L - 8}" y="${fx(Y(0) + 4)}" text-anchor="end" class="tr-rot">${fmt1(C.k0)}</text>`);
-  out.push(`<text x="${L - 8}" y="${fx(yS + 4)}" text-anchor="end" class="tr-rot forte">${fmt1(C.obj)}</text>`);
-  C.campos.forEach(c => out.push(`<text x="${L - 8}" y="${fx(Y(c.q) + 4)}" text-anchor="end" class="tr-rot">${fmt1(c.kg)}</text>`));
-  out.push(`<text x="${L - 8}" y="${T - 22}" text-anchor="end" class="tr-rot">kg</text>`);
+  if (!compacto) out.push(`<text x="${L - 8}" y="${fx(Y(0) + 4)}" text-anchor="end" class="tr-rot">${fmt1(C.k0)}</text>`);
+  if (!compacto) out.push(`<text x="${L - 8}" y="${fx(yS + 4)}" text-anchor="end" class="tr-rot forte">${fmt1(C.obj)}</text>`);
+  if (!compacto) C.campos.forEach(c => out.push(`<text x="${L - 8}" y="${fx(Y(c.q) + 4)}" text-anchor="end" class="tr-rot">${fmt1(c.kg)}</text>`));
+  if (!compacto) out.push(`<text x="${L - 8}" y="${T - 22}" text-anchor="end" class="tr-rot">kg</text>`);
   // Projeção até ao cume
   if (!C.chegou && C.eta) out.push(`<path class="tr-proj" d="M${fx(ux)} ${fx(uy)}L${fx(xS)} ${fx(yS)}" stroke="${COR.peso}" stroke-width="2" stroke-dasharray="1 6" stroke-linecap="round" opacity=".75"/>`);
   // Trilho percorrido
@@ -182,6 +182,7 @@ function svgTrilho(C, W, anim){
       <path d="M0 -11.5L-1 -5.2M-1 -5.2L-4.2 0M-1 -5.2L2.2 0M-0.2 -9.6L3.6 -7.4M3.6 -7.4L5 0.4"/></g>
     <rect x="-4.6" y="-12" width="3.4" height="5.2" rx="1.2" fill="${COR.luar}" opacity=".85"/>
     <circle cy="-14.2" r="2.5" fill="${COR.luar}"/><circle cx="2" cy="-15.2" r="1.1" fill="#FFF4D8"/></g>`);
+  if (compacto) return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" class="graf trilho compacto${anim ? ' anim' : ''}" role="img" aria-label="Caminho até ao objetivo: ${fmtInt(C.pct * 100)}% feito">${defs}${out.join('')}</svg>`;
   // Datas por baixo
   const dt = n => dataCurta(Math.round(n));
   out.push(`<text x="${fx(Math.max(x0, L))}" y="${H - 14}" class="tr-rot">${dt(C.n0)}</text>`);
@@ -270,4 +271,55 @@ function svgCoruja(){
       <path d="M42 105l-2 4M45 105v5M48 105l2 4M53 105l-2 4M56 105v5M59 105l2 4" stroke="#C9A86A" stroke-width="1.6" stroke-linecap="round"/>
     </g>
   </svg>`;
+}
+
+/* ---------- O prato das calorias: o aro enche com a média do dia face à meta; garfo e faca ao lado ---------- */
+function svgPrato(frac, anim){
+  const f = clamp(frac || 0, 0, 1.4), r = 40, c = 2 * Math.PI * r, cheio = Math.min(1, f), excesso = Math.max(0, f - 1);
+  const arco = (ini, fim, cor, cls) => `<circle class="${cls}" cx="60" cy="60" r="${r}" fill="none" stroke="${cor}" stroke-width="6" stroke-linecap="round" pathLength="1"
+    stroke-dasharray="${fx(fim - ini)} 2" stroke-dashoffset="${fx(-ini)}" transform="rotate(-90 60 60)"/>`;
+  return `<svg class="prato-ilu${anim ? ' anim' : ''}" viewBox="0 0 120 120" aria-hidden="true">
+    <defs><radialGradient id="prLouca" cx="45%" cy="40%" r="65%"><stop offset="0" stop-color="#2a3246"/><stop offset=".75" stop-color="#1b2131"/><stop offset="1" stop-color="#141927"/></radialGradient>
+      <linearGradient id="prPrata" x1="0" x2="1"><stop offset="0" stop-color="#7d89a8"/><stop offset=".5" stop-color="#dfe6f6"/><stop offset="1" stop-color="#7d89a8"/></linearGradient></defs>
+    <path d="M10 22v18q0 5 4 6v52q0 3 2 3t2-3V46q4-1 4-6V22M14 22v14M18 22v14" fill="none" stroke="url(#prPrata)" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M106 22q-6 4-6 22q0 6 4 8v46q0 3 2 3t2-3V22z" fill="url(#prPrata)" opacity=".9"/>
+    <circle cx="60" cy="60" r="${r + 7}" fill="url(#prLouca)" stroke="#B4C4EC" stroke-opacity=".25"/>
+    <circle cx="60" cy="60" r="${r - 9}" fill="none" stroke="#B4C4EC" stroke-opacity=".14"/>
+    <circle cx="60" cy="60" r="${r}" fill="none" stroke="#2c3448" stroke-width="6"/>
+    ${cheio > .005 ? arco(0, cheio, COR.comida, 'pr-arco') : ''}${excesso > .005 ? arco(0, excesso, COR.ouro, 'pr-arco pr-mais') : ''}
+    <circle cx="60" cy="60" r="${r - 13}" fill="${COR.comida}" opacity=".06"/>
+  </svg>`;
+}
+
+/* ---------- A medalha dos recordes ---------- */
+function svgMedalha(n){
+  return `<svg class="medalha${n ? '' : ' apagada'}" viewBox="0 0 80 100" aria-hidden="true">
+    <defs><radialGradient id="meOuro" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#FFF1C9"/><stop offset=".45" stop-color="#E6C77F"/><stop offset="1" stop-color="#8f6a28"/></radialGradient>
+      <linearGradient id="meFita" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff9a3c"/><stop offset="1" stop-color="#b3260e"/></linearGradient>
+      <clipPath id="meClip"><circle cx="40" cy="64" r="24"/></clipPath></defs>
+    <path d="M22 4h14l10 34H32z" fill="url(#meFita)"/><path d="M58 4H44L34 38h14z" fill="url(#meFita)" opacity=".85"/>
+    <circle cx="40" cy="64" r="27" fill="#5a4318"/><circle cx="40" cy="64" r="24" fill="url(#meOuro)"/>
+    <circle cx="40" cy="64" r="18.5" fill="none" stroke="#8f6a28" stroke-opacity=".6"/>
+    <path d="${estrela(40, 64, 12)}" fill="#fff6dc" opacity=".9"/>
+    <g clip-path="url(#meClip)"><rect class="me-brilho" x="0" y="30" width="16" height="70" fill="#fff" opacity=".5" transform="skewX(-20)"/></g>
+  </svg>`;
+}
+
+/* ---------- O relógio das refeições: cada anel é um dia (segunda ao centro), cada ponto uma refeição ---------- */
+function svgRelogio(S){
+  const cx = 110, cy = 110, r0 = 26, passo = 10.5, out = [];
+  const ang = h => (h / 24) * Math.PI * 2 - Math.PI / 2, P = (h, r) => [cx + r * Math.cos(ang(h)), cy + r * Math.sin(ang(h))];
+  // Noite (22h às 6h) sombreada
+  const rN = r0 + passo * 7 + 6, [a1, b1] = P(22, rN), [a2, b2] = P(6, rN);
+  out.push(`<path d="M${cx} ${cy}L${fx(a1)} ${fx(b1)}A${rN} ${rN} 0 0 1 ${fx(a2)} ${fx(b2)}Z" fill="#7AA2F5" opacity=".06"/>`);
+  for (let i = 0; i < 7; i++) out.push(`<circle cx="${cx}" cy="${cy}" r="${r0 + passo * i}" fill="none" stroke="#B4C4EC" stroke-opacity="${i === 0 ? .2 : .1}"/>`);
+  for (let h = 0; h < 24; h++){ const [x1, y1] = P(h, rN - (h % 6 ? 3 : 6)), [x2, y2] = P(h, rN); out.push(`<path d="M${fx(x1)} ${fx(y1)}L${fx(x2)} ${fx(y2)}" stroke="#B4C4EC" stroke-opacity="${h % 6 ? .25 : .6}"/>`); }
+  [0, 6, 12, 18].forEach(h => { const [x, y] = P(h, rN + 11); out.push(`<text x="${fx(x)}" y="${fx(y + 4)}" text-anchor="middle" class="rel-rot">${h}h</text>`); });
+  const maxK = Math.max(400, ...S.dias.flatMap(d => d.refeicoes.map(r => r.kcal)));
+  S.dias.forEach((d, i) => d.refeicoes.forEach(r => {
+    const t = new Date(r.ts), hh = t.getHours() + t.getMinutes() / 60, [x, y] = P(hh, r0 + passo * i), rr = 2.2 + 4.2 * Math.sqrt(r.kcal / maxK);
+    out.push(`<circle cx="${fx(x)}" cy="${fx(y)}" r="${fx(rr)}" fill="${hh >= 22 || hh < 5 ? COR.ouro : COR.comida}" stroke="#151923" stroke-width="1.2" data-dica="${dica(`<b>${esc(r.prato)}</b><span>${DIAS_SEM[i]} às ${hora(r.ts)}, ${fmtInt(r.kcal)} kcal</span>`)}" data-acao="dia" data-v="${d.k}"/>`);
+  }));
+  out.push(`<circle cx="${cx}" cy="${cy}" r="${r0 - 8}" fill="#1b2131"/>`);
+  return `<svg class="relogio" viewBox="-14 -14 248 248" role="img" aria-label="Horário das refeições da semana">${out.join('')}</svg>`;
 }

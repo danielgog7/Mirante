@@ -15,7 +15,7 @@
 <body>
 <canvas id="ceu" aria-hidden="true"></canvas>
 <header class="topo">
-  <button class="marca" data-acao="irSemana" aria-label="Mirante, ir para a semana">
+  <button class="marca" data-acao="irInicio" aria-label="Mirante, ir para a semana">
     <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><path d="M3 25L11 14L15 19L20 11L29 25Z" fill="#1d2620" stroke="#9AC74B" stroke-width="1.7" stroke-linejoin="round"/><path d="M23.5 3.5l1 2.7 2.7 1-2.7 1-1 2.7-1-2.7-2.7-1 2.7-1z" fill="#7AA2F5"/><circle cx="8.5" cy="28" r="1.9" fill="#EE6A22"/></svg>
     <span>Mirante</span>
   </button>
@@ -29,18 +29,24 @@
 
 <div id="aviso" class="aviso" hidden></div>
 <main class="wrap">
-  <section id="vSemana" class="vista"></section>
-  <section id="vEvolucao" class="vista" hidden></section>
+  <section id="vInicio" class="vista"></section>
+  <section id="vComida" class="vista" hidden></section>
+  <section id="vTreino" class="vista" hidden></section>
+  <section id="vPeso" class="vista" hidden></section>
   <section id="vLigacoes" class="vista" hidden></section>
 </main>
 
 <nav class="barra" aria-label="Navegação">
-  <button class="tab ativo" data-acao="irSemana" data-v="vSemana">
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 19L8.5 10.5L12 15L15.5 9L21.5 19Z"/></svg><span>Semana</span></button>
+  <button class="tab ativo" data-acao="irInicio" data-v="vInicio">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 20L8.5 11.5L12 16L15.5 10L21.5 20Z"/><path d="M17.5 3.2l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" fill="currentColor" stroke="none"/></svg><span>Início</span></button>
+  <button class="tab" data-acao="irComida" data-v="vComida">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3v7a2 2 0 0 0 4 0V3M9 10v11M17 3c-2 1.5-3 4-3 7h3v11"/></svg><span>Comida</span></button>
   <button class="tab tab-relato" data-acao="relato">
     <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M12 2.5l1.9 5.3 5.6.2-4.4 3.5 1.6 5.4L12 13.8l-4.7 3.1 1.6-5.4L4.5 8l5.6-.2z"/></svg><span>Relato</span></button>
-  <button class="tab" data-acao="irEvolucao" data-v="vEvolucao">
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l5-5 4 3 8-8"/><path d="M15 7h5v5"/></svg><span>Evolução</span></button>
+  <button class="tab" data-acao="irTreino" data-v="vTreino">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 7v10M17.5 7v10M3.5 9.5v5M20.5 9.5v5M6.5 12h11"/></svg><span>Treino</span></button>
+  <button class="tab" data-acao="irPeso" data-v="vPeso">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16M8 20h8M5 7h14M5 7l-2.5 6a2.5 2.5 0 0 0 5 0zM19 7l-2.5 6a2.5 2.5 0 0 0 5 0z"/></svg><span>Peso</span></button>
 </nav>
 
 <div id="relato" class="relato" hidden role="dialog" aria-modal="true" aria-label="Relato da semana"></div>
@@ -56,6 +62,8 @@
 <script src="corpo.js"></script>
 <script src="graficos.js"></script>
 <script src="ilustracoes.js"></script>
+<script src="forja-cena.js"></script>
+<script src="vistas.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

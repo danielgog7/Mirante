@@ -2,8 +2,8 @@
 /* Mirante — aplicação: vistas, relato da semana, detalhe do dia, ligações e leitura do vigia (IA). */
 
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
-let DADOS = null, semOff = 0, vista = 'vSemana', evoRange = ML.get('evoRange', 12), demoForcado = !!ML.get('demo', false);
-let GRAFS = {}, transicao = '', animEvo = true, animarHz = true, inicial = true, abrirRelatoNoInicio = /[?&]relato=1/.test(location.search), podeInstalar = null;
+let DADOS = null, semOff = 0, vista = 'vInicio', evoRange = ML.get('evoRange', 12), demoForcado = !!ML.get('demo', false);
+let GRAFS = {}, transicao = '', inicial = true, abrirRelatoNoInicio = /[?&]relato=1/.test(location.search), podeInstalar = null;
 
 /* ---------- Formatação ---------- */
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
@@ -118,12 +118,13 @@ function aviso(){
 }
 
 /* ---------- Vistas ---------- */
+const VISTAS = ['vInicio', 'vComida', 'vTreino', 'vPeso', 'vLigacoes'];
 function renderVista(){
   limparDicas(); GRAFS = {};
-  for (const v of ['vSemana', 'vEvolucao', 'vLigacoes']) $('#' + v).hidden = v !== vista;
+  for (const v of VISTAS){ const el = $('#' + v); el.hidden = v !== vista; if (v !== vista && el.innerHTML) el.innerHTML = ''; }
   $$('nav.barra .tab[data-v]').forEach(b => b.classList.toggle('ativo', b.dataset.v === vista));
-  if (!DADOS){ $('#' + vista).innerHTML = vista === 'vLigacoes' ? '' : '<div class="esqueleto"></div><div class="esqueleto" style="height:180px"></div>'; if (vista === 'vLigacoes') renderLigacoes(); return; }
-  if (vista === 'vSemana') renderSemana(); else if (vista === 'vEvolucao') renderEvolucao(); else renderLigacoes();
+  if (!DADOS){ if (vista === 'vLigacoes') renderLigacoes(); else $('#' + vista).innerHTML = '<div class="esqueleto"></div><div class="esqueleto" style="height:180px"></div>'; return; }
+  ({vInicio: renderInicio, vComida: renderComida, vTreino: renderTreino, vPeso: renderPeso, vLigacoes: renderLigacoes})[vista]();
   const el = $('#' + vista); el.classList.remove('entra', 'entra-esq', 'entra-dir');
   if (transicao){ void el.offsetWidth; el.classList.add(transicao); transicao = ''; }
 }
@@ -135,105 +136,20 @@ function desenhar(raiz = document){
     el._w = w; el.innerHTML = f(w);
   });
 }
-function irPara(v){ if (vista === v && v !== 'vSemana'){ scrollTo({top: 0, behavior: 'smooth'}); return; } if (vista !== v){ transicao = 'entra'; if (v === 'vEvolucao') animEvo = true; if (v === 'vSemana') animarHz = true; } vista = v; renderVista(); scrollTo({top: 0}); }
+function irPara(v){ if (vista === v){ scrollTo({top: 0, behavior: 'smooth'}); return; } transicao = 'entra'; animarVista = true; vista = v; renderVista(); scrollTo({top: 0}); }
 
-/* ---------- Semana ---------- */
+/* ---------- Blocos partilhados ---------- */
 const EXPL = {
   comida: '<b>Comida</b><span>O score da Garfada: calorias perto da meta (40), proteína (20), registo completo (15), qualidade (15) e água (10).</span>',
   treino: '<b>Treino</b><span>Treinos feitos face ao objetivo semanal (50), grupos musculares trabalhados (25) e progressão das cargas (25).</span>',
   peso: '<b>Peso</b><span>Ritmo da tendência face ao objetivo: perder 0,2 a 1% do peso por semana, manter, ou ganhar 0,1 a 0,5%.</span>'
 };
 const TEND = '<b>Tendência</b><span>Suaviza as oscilações do dia a dia (água, sal, hora da pesagem). É ela que mostra se estás mesmo a perder ou a ganhar.</span>';
-function renderSemana(){
-  const h = hojeN(), ini = segundaDe(h) + semOff * 7, S = semana(ini), A = semana(ini - 7), min = primeiraSemana();
-  const L = leituras(S, A).slice(0, 5), refs = S.dias.flatMap(d => d.refeicoes);
-  let anim = animarHz; animarHz = false;
-  $('#vSemana').innerHTML = `
-  <div class="cab-semana">
-    <button class="seta" data-acao="semAnt" ${ini <= min ? 'disabled' : ''} aria-label="Semana anterior">${SETA_E}</button>
-    <div><h1>${rotSemana(ini)}</h1><p class="sub">${subSemana(S)}</p></div>
-    <button class="seta" data-acao="semSeg" ${semOff >= 0 ? 'disabled' : ''} aria-label="Semana seguinte">${SETA_D}</button>
-  </div>
-  <div class="sem-grid">
-    <section class="painel horiz-painel g-hz"><div class="graf-caixa" data-graf="hz"></div>
-      <div class="legenda"><span>${GLIFO.peso.replace('width="22" height="22"', 'width="14" height="14"')}Peso, no céu</span><span>${GLIFO.comida.replace('width="22" height="22"', 'width="16" height="16"')}Calorias de cada dia</span><span><svg width="16" height="2" aria-hidden="true"><rect width="16" height="2" fill="${COR.ouro}"/></svg>Meta</span><span>${GLIFO.treino.replace('width="22" height="22"', 'width="16" height="16"')}Treino</span></div></section>
-    <section class="painel nota-painel g-nota">${blocoNota(S, A, anim)}</section>
-    <div class="tres g-areas">${areaComida(S, A, anim)}${areaTreino(S, A)}${areaPeso(S)}</div>
-    ${D.pesos.length ? `<section class="painel g-trilho">${blocoTrilho()}</section>` : ''}
-    ${D.temGarfada ? `<section class="painel g-bal">${blocoBalanca(S)}</section>` : ''}
-    <section class="painel g-leit"><h2>O que se destacou</h2>
-      ${L.length ? `<ul class="leituras">${L.map(x => `<li><span class="glifo">${GLIFO[x.ic]}</span><p>${x.txt}</p></li>`).join('')}</ul>` : `<p class="nota-vazia">${S.futura ? 'Esta semana ainda não começou.' : 'Ainda há poucos dados nesta semana para tirar conclusões.'}</p>`}
-      ${blocoVigia(S, A)}</section>
-    ${D.temForja ? `<section class="painel g-musc">${blocoMusculos(S)}</section>` : ''}
-    ${D.temForja ? `<section class="painel g-rec">${blocoRecordes(S)}</section>` : ''}
-    ${refs.length ? `<section class="painel g-pratos"><div class="painel-topo"><h2>A semana em pratos</h2><span class="sub">${refs.length} ${refs.length === 1 ? 'refeição' : 'refeições'}</span></div><div class="pratos">${refs.map(tilePrato).join('')}</div></section>` : ''}
-  </div>`;
-  GRAFS.hz = w => svgHorizonte(S, w, anim);
-  GRAFS.trilho = w => svgTrilho(caminhoPeso(), w, anim);
-  GRAFS.bal = w => svgBalanca(balancaSemana(S), w, anim);
-  desenhar($('#vSemana'));
-  if (anim && S.nota.total != null){ contar($('#vSemana .nota-num b'), S.nota.total, 1300); if (S.nota.total >= 85) Ceu.cadente(1900); }
-  anim = false;
-}
 function subSemana(S){
   if (S.emCurso){ const f = 7 - S.decorridos; return f ? `Semana em curso. ${f === 1 ? 'Falta 1 dia' : 'Faltam ' + f + ' dias'}.` : 'Último dia da semana.'; }
   const h = hojeN();
   if (semOff === -1) return h === segundaDe(h) ? 'Semana passada. A nova começou hoje.' : 'Semana passada.';
   return `Há ${-semOff} semanas.`;
-}
-function blocoNota(S, A, anim){
-  const n = S.nota;
-  if (n.total == null) return `<h2>Nota da semana</h2><p class="sub" style="margin-top:6px">${S.futura ? 'A semana ainda não começou.' : 'Ainda sem dados suficientes para dar nota a esta semana.'}</p>`;
-  const comps = [['comida', 'Comida'], ['treino', 'Treino'], ['peso', 'Peso']].filter(([k]) => n.c[k] != null);
-  return `<div class="nota">
-    <div class="nota-anel-caixa">${svgNota(n, 176, anim)}<div class="nota-num"><b>${anim ? 0 : n.total}</b><span>de 100</span></div></div>
-    <div class="nota-txt"><h2>${n.faixa}</h2>
-      <p class="sub">${n.provisoria ? 'Provisória: a semana ainda não fechou.' : A.nota.total != null ? `Na semana anterior, ${A.nota.total}.` : 'A nota desta semana.'}</p>
-      <ul class="nota-comps">${comps.map(([k, nome]) => `<li data-dica="${dica(EXPL[k])}" tabindex="0"><i class="mk ${k}"></i><span>${nome}</span><b>${n.c[k]}${A.nota.c[k] != null && !n.provisoria ? `<small>antes ${A.nota.c[k]}</small>` : ''}</b></li>`).join('')}</ul></div></div>
-    <button class="bt pri larg${anim ? ' faisca' : ''}" data-acao="relato">${ESTRELA_ICO}Ver o relato da semana</button>`;
-}
-function barraMeta(nome, v, alvo, un, f = fmtInt){
-  return `<div class="barra-m"><div class="lin"><span>${nome}</span><b>${f(v)} de ${f(alvo)} ${un}</b></div><div class="trilho"><i style="width:${clamp(v / alvo * 100, 2, 100)}%"></i></div></div>`;
-}
-const vazioArea = (mk, titulo, txt, bt) => `<section class="painel area"><div class="area-cab"><i class="mk ${mk}"></i><h2>${titulo}</h2></div><div class="vazio-area"><p>${txt}</p>${bt ? `<button class="bt" data-acao="irLigacoes">${bt}</button>` : ''}</div></section>`;
-function areaComida(S, A, anim){
-  if (!D.temGarfada) return vazioArea('comida', 'Comida', 'Liga a Garfada para veres aqui o que comeste.', 'Ligar a Garfada');
-  const c = S.comida, m = S.metas;
-  if (!c.tem) return vazioArea('comida', 'Comida', S.futura ? 'A semana ainda não começou.' : 'Sem refeições completas registadas nesta semana.');
-  const dk = A.comida.tem ? c.kcalMed - A.comida.kcalMed : null;
-  return `<section class="painel area"><div class="area-cab"><i class="mk comida"></i><h2>Comida</h2></div>
-    <div class="grande"><b>${fmtInt(c.kcalMed)}</b><small>kcal</small><span>por dia, em média, em ${c.diasReg} ${c.diasReg === 1 ? 'dia registado' : 'dias registados'}</span></div>
-    <p class="contexto">Meta de ${fmtInt(m.kcal)}. <b>${c.naMeta} de ${c.diasReg}</b> ${c.diasReg === 1 ? 'dia' : 'dias'} perto dela.</p>
-    ${barraMeta('Proteína', c.protMed, m.prot, 'g')}
-    <div class="agua-linha">${svgJarro(c.diasAgua ? c.aguaMed / m.agua : 0, anim)}<div>${c.diasAgua ? `<b>${fmt1(c.aguaMed / 1000)}<small>L de água por dia</small></b><span>Meta de ${fmt1(m.agua / 1000)} L. Registada em ${c.diasAgua} ${c.diasAgua === 1 ? 'dia' : 'dias'}.</span>` : `<b>—</b><span>Sem registos de água nesta semana.</span>`}</div></div>
-    ${dk != null ? `<p class="delta">${setaDelta(dk)}<span><b>${sinal(dk)} kcal</b> por dia face à semana anterior</span></p>` : ''}</section>`;
-}
-function areaTreino(S, A){
-  if (!D.temForja) return vazioArea('treino', 'Treino', 'Liga a Forja para veres aqui os teus treinos.', 'Ligar a Forja');
-  const t = S.treino, n = Math.max(t.alvo, t.sessoes);
-  const dv = A.treino.volume && t.volume ? (t.volume - A.treino.volume) / A.treino.volume * 100 : null;
-  return `<section class="painel area"><div class="area-cab"><i class="mk treino"></i><h2>Treino</h2></div>
-    <div class="grande"><b>${t.sessoes}</b><small>de ${t.alvo}</small><span>treinos${S.emCurso ? ' até agora' : ' na semana'}</span></div>
-    <div class="peca-caixa">${svgPeca(t.diasTreino / Math.max(1, t.alvo))}</div>
-    <div class="peca-txt"><b>${t.diasTreino >= t.alvo ? 'Lâmina forjada esta semana' : 'A peça da semana'}</b><span>${t.diasTreino >= t.alvo ? 'Bom trabalho, ferreiro.' : 'Cada treino molda o ferro até virar lâmina.'}</span></div>
-    <dl class="numeros"><div><dt>Tempo</dt><dd>${fmtHM(t.minutos)}</dd></div><div><dt>Séries</dt><dd>${t.series}</dd></div><div><dt>Volume</dt><dd>${fmtTon(t.volume)}</dd></div></dl>
-    ${dv != null && !S.emCurso ? `<p class="delta">${setaDelta(dv)}<span>Volume <b>${sinal(dv)}%</b> face à semana anterior</span></p>` : A.treino.sessoes || t.sessoes ? `<p class="delta">${setaDelta(t.sessoes - A.treino.sessoes)}<span>Na semana anterior, <b>${A.treino.sessoes}</b> ${A.treino.sessoes === 1 ? 'treino' : 'treinos'}</span></p>` : ''}</section>`;
-}
-function areaPeso(S){
-  if (!D.pesos.length) return vazioArea('peso', 'Peso', 'Regista o peso na Garfada ou na Forja e a tendência aparece aqui.');
-  const p = S.peso;
-  if (p.tFim == null) return vazioArea('peso', 'Peso', 'Ainda sem pesagens até esta semana.');
-  let caminho = '';
-  if (p.objetivo){
-    const ini = (D.gcfg && +D.gcfg.pesoInicio) || IDX.tend[0].kg, tot = ini - p.objetivo, feito = ini - p.tFim;
-    if (Math.abs(tot) > .3){ const pct = clamp(feito / tot, 0, 1); caminho = `<div class="barra-m"><div class="lin"><span>Até aos ${fmt1(p.objetivo)} kg</span><b>${fmtInt(pct * 100)}% do caminho</b></div><div class="trilho"><i style="width:${Math.max(2, pct * 100)}%;background:var(--peso)"></i></div></div>`; }
-  }
-  return `<section class="painel area"><div class="area-cab"><i class="mk peso"></i><h2>Peso</h2></div>
-    <div class="grande" data-dica="${dica(TEND)}"><b>${fmt1(p.tFim)}</b><small>kg</small><span>tendência ${S.emCurso ? 'de hoje' : 'no fim da semana'}</span></div>
-    <p class="contexto">${p.delta != null ? `<b>${sinal(p.delta, fmt1)} kg</b> nesta semana. ` : ''}${p.ritmo != null ? `Ritmo de ${sinal(p.ritmo, fmt1)} kg por semana.` : 'Precisa de mais pesagens para calcular o ritmo.'}</p>
-    ${caminho}
-    ${p.semanasAteMeta && p.semanasAteMeta < 160 ? `<p class="contexto">Neste ritmo chegas lá por volta de <b>${mesAno(Date.now() + p.semanasAteMeta * 7 * DIA)}</b>.</p>` : ''}
-    <p class="delta">${GLIFO.peso.replace('width="22" height="22"', 'width="14" height="14"')}<span><b>${p.pesagens.length}</b> ${p.pesagens.length === 1 ? 'pesagem' : 'pesagens'} nesta semana</span></p></section>`;
 }
 function blocoTrilho(){
   const C = caminhoPeso(), cab = '<h2>O caminho até ao cume</h2>';
@@ -332,57 +248,7 @@ Dados: ${JSON.stringify(resumoParaIA(S, A))}`;
   return res;
 }
 
-/* ---------- Evolução ---------- */
 const RANGES = [[8, '8 semanas'], [12, '3 meses'], [26, '6 meses'], [52, '1 ano']];
-function renderEvolucao(){
-  const h = hojeN(), seg = segundaDe(h), min = primeiraSemana();
-  const inis = Array.from({length: evoRange}, (_, i) => seg - (evoRange - 1 - i) * 7).filter(x => x >= min);
-  const SS = inis.map(semana), rot = ini => dataCurta(ini);
-  const dicaSem = (S, linhas) => `<b>Semana de ${rotSemana(S.ini)}</b>${linhas}`;
-  const tend = IDX.tend.filter(p => p.n >= inis[0]);
-  const tAgora = tendEm(h), tIni = tend[0], ritmo = ritmoPeso(h), gasto = gastoReal(h - 1);
-  const obj = (D.gcfg && +D.gcfg.pesoMeta) || (D.fcfg && +D.fcfg.meta) || 0;
-  // Força: exercícios com carga mais feitos no período
-  const desde = new Date(chaveDe(inis[0]) + 'T00:00:00').getTime(), cont = new Map();
-  for (const [id, lista] of IDX.hist){ const l = lista.filter(x => x.ts >= desde && x.comPeso); if (l.length >= 2) cont.set(id, l); }
-  const forca = [...cont.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 5);
-  $('#vEvolucao').innerHTML = `
-  <div class="cab-vista"><h1>Evolução</h1><p class="sub">${inis.length > 1 ? `De ${dUTC(inis[0]).getUTCDate()} de ${MESES[dUTC(inis[0]).getUTCMonth()]}${dUTC(inis[0]).getUTCFullYear() !== new Date().getFullYear() ? ' de ' + dUTC(inis[0]).getUTCFullYear() : ''} até hoje, semana a semana.` : 'A primeira semana de dados.'}</p>
-    <div class="chips" role="group" aria-label="Período">${RANGES.map(([v, t]) => `<button class="chip ${v === evoRange ? 'sel' : ''}" data-acao="range" data-v="${v}" aria-pressed="${v === evoRange}">${t}</button>`).join('')}</div></div>
-  <div class="evo-grid">
-    <section class="painel largo"><h2>Nota por semana</h2><p class="sub">A barra mais clara é a semana em curso.</p><div class="graf-caixa" data-graf="nota"></div></section>
-    <section class="painel largo"><h2>Peso</h2>
-      ${tend.length >= 2 ? `<dl class="stats">
-        <div data-dica="${dica(TEND)}"><dt>Tendência atual</dt><dd>${fmt1(tAgora.t)} <small>kg</small></dd></div>
-        <div><dt>No período</dt><dd>${sinal(tAgora.t - tIni.t, fmt1)} <small>kg</small></dd></div>
-        <div><dt>Ritmo atual</dt><dd>${ritmo != null ? sinal(ritmo, fmt1) + ' <small>kg/sem.</small>' : '—'}</dd></div>
-        <div data-dica="${dica('<b>Gasto real estimado</b><span>A média do que comeste nos últimos 28 dias, corrigida pela energia que a tendência do peso mostra que ganhaste ou perdeste (7700 kcal por kg).</span>')}"><dt>Gasto real</dt><dd>${gasto ? fmtInt(gasto.kcal) + ' <small>kcal/dia</small>' : '—'}</dd></div>
-      </dl><div class="graf-caixa" data-graf="peso"></div>` : `<p class="nota-vazia">Precisa de pelo menos duas pesagens neste período.</p>`}</section>
-    ${D.temGarfada ? `<section class="painel"><h2>Calorias por dia</h2><p class="sub">Média de cada semana, nos dias registados</p><div class="graf-caixa" data-graf="kcal"></div></section>
-    <section class="painel"><h2>Proteína por dia</h2><p class="sub">Média de cada semana, em gramas</p><div class="graf-caixa" data-graf="prot"></div></section>` : ''}
-    ${D.temForja ? `<section class="painel"><h2>Treinos por semana</h2><p class="sub">A linha dourada é o teu objetivo semanal</p><div class="graf-caixa" data-graf="sess"></div></section>
-    <section class="painel"><h2>Volume de treino</h2><p class="sub">Peso vezes repetições, somado na semana</p><div class="graf-caixa" data-graf="vol"></div></section>` : ''}
-    <section class="painel largo"><h2>Constância</h2><p class="sub">Cada quadrado é um dia. Quanto mais verde, mais perto da meta ficaste; a brasa marca os treinos.</p>
-      <div class="rola" data-graf="cal"></div>
-      <div class="lev-legenda"><span><i class="q" style="background:${RAMPA[0]}"></i>Sem registo</span><span><i class="q" style="background:${RAMPA[1]}"></i>Longe da meta</span><span><i class="q" style="background:${RAMPA[2]}"></i>A 20%</span><span><i class="q" style="background:${RAMPA[3]}"></i>A 10%</span><span><i class="q" style="background:${RAMPA[4]}"></i>Na meta e com proteína</span><span><i class="mk treino"></i>Treino</span></div></section>
-    ${D.temForja ? `<section class="painel largo"><h2>Força</h2><p class="sub">Força máxima estimada nos exercícios que mais fazes, treino a treino.</p>
-      ${forca.length ? `<ul class="forca">${forca.map(([id, l]) => { const v = l.map(x => x.v), d = (v[v.length - 1] - v[0]) / v[0] * 100;
-        return `<li><div><div class="nm">${esc(nomeEx(id))}</div><div class="det"><b>${fmt1(v[v.length - 1])} kg</b>, ${sinal(d)}% em ${l.length} treinos</div></div><div data-mini="${id}"></div></li>`; }).join('')}</ul>` : '<p class="nota-vazia">Ainda poucos treinos com carga neste período.</p>'}</section>` : ''}
-  </div>`;
-  const it = (f, extra) => SS.map(S => Object.assign({rot: rot(S.ini), atual: S.emCurso}, f(S)));
-  let anim = animEvo; animEvo = false;
-  GRAFS.nota = w => svgBarras(it(S => ({v: S.nota.total || 0, cor: COR.ouro, dica: dicaSem(S, S.nota.total != null ? `<span><i class="mk nota"></i>Nota ${S.nota.total}, ${S.nota.faixa.toLowerCase()}${S.emCurso ? ' (provisória)' : ''}</span>` : '<span>Sem dados</span>')})), w, 170, {cor: COR.ouro, max: 100, titulo: 'Nota por semana', anim});
-  if (tend.length >= 2) GRAFS.peso = w => svgPeso(tend, w, 230, obj);
-  GRAFS.kcal = w => svgBarras(it(S => ({v: S.comida.kcalMed, dica: dicaSem(S, S.comida.tem ? `<span><i class="mk comida"></i>${fmtInt(S.comida.kcalMed)} kcal por dia, ${S.comida.diasReg} dias registados</span>` : '<span>Sem registo</span>')})), w, 190, {cor: COR.comida, meta: IDX.metas.kcal, rotMeta: `meta ${fmtInt(IDX.metas.kcal)}`, titulo: 'Calorias por dia', anim});
-  GRAFS.prot = w => svgBarras(it(S => ({v: S.comida.protMed, dica: dicaSem(S, S.comida.tem ? `<span><i class="mk comida"></i>${fmtInt(S.comida.protMed)} g por dia</span>` : '<span>Sem registo</span>')})), w, 190, {cor: COR.comida, meta: IDX.metas.prot, rotMeta: `meta ${IDX.metas.prot} g`, fmt: v => fmtInt(v) + ' g', titulo: 'Proteína por dia', anim});
-  GRAFS.sess = w => svgBarras(it(S => ({v: S.treino.sessoes, dica: dicaSem(S, `<span><i class="mk treino"></i>${S.treino.sessoes} ${S.treino.sessoes === 1 ? 'treino' : 'treinos'}, ${fmtHM(S.treino.minutos)}</span>`)})), w, 190, {cor: COR.treino, meta: (D.fcfg && +D.fcfg.dias) || 3, rotMeta: 'objetivo', max: 5, titulo: 'Treinos por semana', anim});
-  GRAFS.vol = w => svgBarras(it(S => ({v: S.treino.volume / 1000, dica: dicaSem(S, `<span><i class="mk treino"></i>${fmtTon(S.treino.volume)}, ${S.treino.series} séries</span>`)})), w, 190, {cor: COR.treino, fmt: v => fmt1(v) + ' t', fmtEixo: v => fmtInt(v) + ' t', titulo: 'Volume por semana', anim});
-  GRAFS.cal = w => svgCalendario(inis[0], inis.length, w);
-  desenhar($('#vEvolucao'));
-  anim = false;
-  const caixa = $('#vEvolucao .rola'); if (caixa) caixa.scrollLeft = caixa.scrollWidth;
-  $$('#vEvolucao [data-mini]').forEach(el => { const l = cont.get(el.dataset.mini); if (l) el.innerHTML = svgMini(l.map(x => x.v), 96, 40, COR.treino); });
-}
 
 /* ---------- Ligações ---------- */
 function origemChave(){
@@ -502,7 +368,7 @@ function cartasRelato(S, A){
   if (D.temForja){
     const carros = Math.floor(t.volume / 1200);
     C.push({f: 'treino', html: `<p class="rl-sup">Treino</p><div class="rl-big">${t.sessoes}<small>de ${t.alvo}</small></div><p class="rl-txt">${t.sessoes === 1 ? 'treino feito' : 'treinos feitos'}${S.emCurso ? ' até agora' : ''}.</p>
-      <div class="rl-peca">${svgPeca(t.diasTreino / Math.max(1, t.alvo))}</div>
+      <div class="rl-peca cena-forja">${ForjaCena.cena(t.diasTreino / Math.max(1, t.alvo))}</div>
       ${t.sessoes ? `<ul class="rl-linhas"><li>Tempo a treinar<b>${fmtHM(t.minutos)}</b></li><li>Séries<b>${t.series}</b></li><li>Volume<b>${fmtTon(t.volume)}</b></li></ul>
       ${carros >= 1 ? `<p class="rl-txt">Levantaste, no total, o peso de <b>${carros} ${carros === 1 ? 'carro pequeno' : 'carros pequenos'}</b>.</p>` : ''}` : ''}`});
     if (t.sessoes){
@@ -564,6 +430,7 @@ function irCarta(i){
     const w = Math.max(280, el.clientWidth || 320), k = el.dataset.rl;
     el.innerHTML = k === 'hz' ? svgHorizonte(RL.S, w, true, false).replace(/data-acao="dia"/g, '') : k === 'bal' ? svgBalanca(balancaSemana(RL.S), w, true) : svgTrilho(caminhoPeso(), w, true);
   });
+  ForjaCena.animar(caixa.querySelector('.cena-forja'));
   const cnt = caixa.querySelector('[data-conta]');
   if (cnt){ contar(cnt, +cnt.dataset.conta); if (+cnt.dataset.conta >= 85) Ceu.cadente(900); }
   if (k.cadente) Ceu.cadente(500);
@@ -651,17 +518,20 @@ async function partilhar(){
 /* ---------- Ações ---------- */
 const semanaAtual = () => { const ini = segundaDe(hojeN()) + semOff * 7; return [semana(ini), semana(ini - 7)]; };
 const ACOES = {
-  irSemana(){ irPara('vSemana'); }, irEvolucao(){ irPara('vEvolucao'); }, irLigacoes(){ irPara('vLigacoes'); },
-  semAnt(){ semOff--; animarHz = true; transicao = 'entra-esq'; renderVista(); }, semSeg(){ if (semOff < 0){ semOff++; animarHz = true; transicao = 'entra-dir'; renderVista(); } },
-  relato(){ if (vista !== 'vSemana' && DADOS){ vista = 'vSemana'; renderVista(); } abrirRelato(); },
+  irInicio(){ irPara('vInicio'); }, irComida(){ irPara('vComida'); }, irTreino(){ irPara('vTreino'); }, irPeso(){ irPara('vPeso'); }, irLigacoes(){ irPara('vLigacoes'); },
+  ir(el){ irPara(el.dataset.v); },
+  irForja(el){ ForjaCena.golpe(el.querySelector('.cena-forja'), () => irPara('vTreino')); },
+  golpe(el){ ForjaCena.golpe(el); },
+  semAnt(){ semOff--; animarVista = true; transicao = 'entra-esq'; renderVista(); }, semSeg(){ if (semOff < 0){ semOff++; animarVista = true; transicao = 'entra-dir'; renderVista(); } },
+  relato(){ abrirRelato(); },
   fecharRelato(){ fecharOverlay('relato'); }, fecharFolha(){ fecharOverlay('folha'); },
   dia(el){ if (el.dataset.v) abrirDia(el.dataset.v); },
-  range(el){ evoRange = +el.dataset.v; ML.set('evoRange', evoRange); animEvo = true; renderVista(); },
+  range(el){ evoRange = +el.dataset.v; ML.set('evoRange', evoRange); const y = scrollY; renderVista(); scrollTo({top: y}); },
   ceu(el){ ML.set('ceu', el.checked); if (el.checked) Ceu.ligar(); else Ceu.desligar(); },
   async atualizar(){ toast('A atualizar…', 1500); await carregar(true); estadoTopo(); if (vista === 'vLigacoes') renderLigacoes(); },
   async limparCache(){ await MDB.limpar(); toast('Cache limpa. A ler de novo…'); await carregar(true); if (vista === 'vLigacoes') renderLigacoes(); },
-  async demo(el){ demoForcado = el.checked; ML.set('demo', demoForcado); semOff = 0; animarHz = true; inicial = true; await carregar(true); },
-  async sairDemo(){ demoForcado = false; ML.set('demo', false); semOff = 0; inicial = true; animarHz = true; await carregar(true); if (DADOS && DADOS.demoAuto) irPara('vLigacoes'); },
+  async demo(el){ demoForcado = el.checked; ML.set('demo', demoForcado); semOff = 0; animarVista = true; inicial = true; await carregar(true); },
+  async sairDemo(){ demoForcado = false; ML.set('demo', false); semOff = 0; inicial = true; animarVista = true; await carregar(true); if (DADOS && DADOS.demoAuto) irPara('vLigacoes'); },
   async guardarFonte(el){
     const app = el.dataset.v, f = el.closest('[data-fonte]'), v = n => f.querySelector(`[name="${n}"]`).value.trim();
     const c = {dono: v('dono'), repo: v('repo'), token: v('token')};
@@ -699,8 +569,8 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape'){ const id = PILHA[PILHA.length - 1]; if (id) fecharOverlay(id); return; }
   if (RL && !$('#relato').hidden){ if (e.key === 'ArrowRight' || e.key === ' '){ e.preventDefault(); irCarta(RL.i + 1); } else if (e.key === 'ArrowLeft') irCarta(RL.i - 1); return; }
-  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role="button"][data-acao]')){ e.preventDefault(); e.target.dispatchEvent(new MouseEvent('click', {bubbles: true})); return; }
-  if (vista === 'vSemana' && DADOS && !PILHA.length && !e.target.closest('input, textarea')){ const ant = $('[data-acao="semAnt"]'); if (e.key === 'ArrowLeft' && ant && !ant.disabled) ACOES.semAnt(); else if (e.key === 'ArrowRight' && semOff < 0) ACOES.semSeg(); }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role="button"][data-acao], [role="link"][data-acao]')){ e.preventDefault(); e.target.dispatchEvent(new MouseEvent('click', {bubbles: true})); return; }
+  if (vista !== 'vLigacoes' && DADOS && !PILHA.length && !e.target.closest('input, textarea')){ const ant = $('[data-acao="semAnt"]'); if (e.key === 'ArrowLeft' && ant && !ant.disabled) ACOES.semAnt(); else if (e.key === 'ArrowRight' && semOff < 0) ACOES.semSeg(); }
 });
 
 /* ---------- Dicas: rato, toque e teclado ---------- */
@@ -746,7 +616,7 @@ document.addEventListener('pointerdown', e => {
   if (!el && !noRelato) return;
   if (el && el.disabled) return;
   if (!el){ Centelhas.explodir(e.clientX, e.clientY, 'base', 6); return; }
-  const painel = el.closest('.painel'), mk = painel && painel.querySelector('.area-cab .mk');
+  const painel = el.closest('.painel'), mk = painel && painel.querySelector('.area-cab .mk, .tile-cab .mk');
   const tema = el.closest('.tab-relato, [data-acao="relato"], [data-acao="partilhar"], [data-acao="vigia"], [data-acao="vigiaRelato"]') ? 'ouro' : mk ? mk.classList[1] : 'base';
   Centelhas.explodir(e.clientX, e.clientY, tema, el.matches('.tab-relato, [data-acao="relato"]') ? 16 : 10);
 }, {passive: true});

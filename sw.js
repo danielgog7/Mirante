@@ -1,8 +1,8 @@
 // Mirante — service worker: abre sem internet e atualiza-se sozinho quando há ligação.
 // As três apps partilham o mesmo endereço (e por isso a mesma área de cache): aqui só se apagam as caches do Mirante.
-const CACHE = 'mirante-v3';
-const FICHEIROS = ['./', './index.html', './estilo.css', './dados.js', './demo.js', './calc.js', './ceu.js', './corpo.js', './graficos.js', './ilustracoes.js', './app.js',
-  './exercicios.json', './fraunces.woff2', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
+const CACHE = 'mirante-v4';
+const FICHEIROS = ['./', './index.html', './estilo.css', './dados.js', './demo.js', './calc.js', './ceu.js', './corpo.js', './graficos.js', './ilustracoes.js', './forja-cena.js', './vistas.js', './app.js',
+  './exercicios.json', './fraunces.woff2', './cinzel.woff2', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FICHEIROS)));

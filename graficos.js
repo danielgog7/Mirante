@@ -164,7 +164,7 @@ function svgBarras(itens, W, H, op){
   const out = [];
   const passo = [1, 2, 5, 10, 20, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000, 20000, 50000].find(s => max / s <= 4) || 100000;
   for (let v = 0; v <= max; v += passo) out.push(`<line x1="${L}" x2="${W - R}" y1="${r1(Y(v))}" y2="${r1(Y(v))}" class="grelha"/><text x="${L - 6}" y="${r1(Y(v) + 4)}" text-anchor="end" class="eixo">${op.fmtEixo ? op.fmtEixo(v) : fmtInt(v)}</text>`);
-  const salto = Math.ceil(n / Math.max(2, Math.floor((W - L - R) / 46)));
+  const salto = op.todosRot ? 1 : Math.ceil(n / Math.max(2, Math.floor((W - L - R) / 46)));
   itens.forEach((it, i) => {
     const x = L + banda * (i + .5), y = Y(it.v || 0), h = H - B - y, cor = it.cor || op.cor;
     if (it.v > 0){
@@ -172,8 +172,9 @@ function svgBarras(itens, W, H, op){
       out.push(`<path class="barra" style="--i:${i}" d="M${r1(x - bw / 2)} ${H - B}V${r1(y + rr)}Q${r1(x - bw / 2)} ${r1(y)} ${r1(x - bw / 2 + rr)} ${r1(y)}H${r1(x + bw / 2 - rr)}Q${r1(x + bw / 2)} ${r1(y)} ${r1(x + bw / 2)} ${r1(y + rr)}V${H - B}Z" fill="${cor}" opacity="${it.atual ? .55 : 1}"/>`);
     }
     if (i % salto === (n - 1) % salto) out.push(`<text x="${r1(x)}" y="${H - 7}" text-anchor="middle" class="eixo">${esc(it.rot)}</text>`);
-    out.push(`<rect x="${r1(L + banda * i)}" y="${T}" width="${r1(banda)}" height="${H - T - B}" fill="transparent" data-dica="${dica(it.dica)}"/>`);
+    out.push(`<rect x="${r1(L + banda * i)}" y="${T}" width="${r1(banda)}" height="${H - T - B}" fill="transparent" data-dica="${dica(it.dica)}"${it.k ? ` data-acao="dia" data-v="${it.k}" style="cursor:pointer"` : ''}/>`);
   });
+  if (op.meta && op.banda) out.push(`<rect x="${L}" y="${r1(Y(op.meta * (1 + op.banda)))}" width="${W - L - R}" height="${r1(Y(op.meta * (1 - op.banda)) - Y(op.meta * (1 + op.banda)))}" fill="${COR.ouro}" opacity=".09"/>`);
   if (op.meta){
     out.push(`<line x1="${L}" x2="${W - R}" y1="${r1(Y(op.meta))}" y2="${r1(Y(op.meta))}" stroke="${COR.ouro}" stroke-width="1.2"/>`);
     out.push(`<text x="${L + 2}" y="${r1(Y(op.meta) - 5)}" class="eixo forte">${esc(op.rotMeta || 'meta')}</text>`);
@@ -224,4 +225,29 @@ const nivelSeries = s => s <= 0 ? 0 : s < 3 ? 1 : s < 6 ? 2 : s < 10 ? 3 : s < 1
 function svgCorpo(musc){
   const nv = {}; for (const k of Object.keys(MUSC)) nv[k] = nivelSeries(musc[k] || 0);
   return corpoSVG(nv, {acao: 'musc', anim: false});
+}
+
+/* ---------- Barras divergentes (balanço energético por semana) ---------- */
+// Abaixo de zero = défice (azul-estrela), acima = excedente (dourado). O zero é a linha neutra.
+function svgDivergente(itens, W, H){
+  const L = 44, R = 10, T = 14, B = 24, n = itens.length; if (!n) return '';
+  const max = Math.max(300, ...itens.map(i => Math.abs(i.v || 0))) * 1.15, banda = (W - L - R) / n, bw = Math.min(20, banda * .62);
+  const Y = v => T + (1 - (v + max) / (2 * max)) * (H - T - B), out = [];
+  const passo = [100, 200, 250, 500, 1000].find(s => max / s <= 2.5) || 1000;
+  for (let v = -Math.floor(max / passo) * passo; v <= max; v += passo) out.push(`<line x1="${L}" x2="${W - R}" y1="${r1(Y(v))}" y2="${r1(Y(v))}" class="grelha"/><text x="${L - 6}" y="${r1(Y(v) + 4)}" text-anchor="end" class="eixo">${v > 0 ? '+' : v < 0 ? '−' : ''}${fmtInt(Math.abs(v))}</text>`);
+  const salto = Math.ceil(n / Math.max(2, Math.floor((W - L - R) / 46)));
+  itens.forEach((it, i) => {
+    const x = L + banda * (i + .5);
+    if (it.v != null){
+      const y0 = Y(0), y1 = Y(it.v), top = Math.min(y0, y1), h = Math.abs(y1 - y0), rr = Math.min(4, h / 2);
+      const cor = it.v < 0 ? COR.peso : COR.ouro;
+      out.push(it.v >= 0
+        ? `<path class="barra" style="--i:${i}" d="M${r1(x - bw / 2)} ${r1(y0)}V${r1(top + rr)}Q${r1(x - bw / 2)} ${r1(top)} ${r1(x - bw / 2 + rr)} ${r1(top)}H${r1(x + bw / 2 - rr)}Q${r1(x + bw / 2)} ${r1(top)} ${r1(x + bw / 2)} ${r1(top + rr)}V${r1(y0)}Z" fill="${cor}" opacity="${it.atual ? .55 : 1}"/>`
+        : `<path class="barra baixo" style="--i:${i}" d="M${r1(x - bw / 2)} ${r1(y0)}V${r1(y1 - rr)}Q${r1(x - bw / 2)} ${r1(y1)} ${r1(x - bw / 2 + rr)} ${r1(y1)}H${r1(x + bw / 2 - rr)}Q${r1(x + bw / 2)} ${r1(y1)} ${r1(x + bw / 2)} ${r1(y1 - rr)}V${r1(y0)}Z" fill="${cor}" opacity="${it.atual ? .55 : 1}"/>`);
+    }
+    if (i % salto === (n - 1) % salto) out.push(`<text x="${r1(x)}" y="${H - 7}" text-anchor="middle" class="eixo">${esc(it.rot)}</text>`);
+    out.push(`<rect x="${r1(L + banda * i)}" y="${T}" width="${r1(banda)}" height="${H - T - B}" fill="transparent" data-dica="${dica(it.dica)}"/>`);
+  });
+  out.push(`<line x1="${L}" x2="${W - R}" y1="${r1(Y(0))}" y2="${r1(Y(0))}" stroke="${COR.nevoa}" stroke-width="1"/>`);
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" class="graf anim" role="img" aria-label="Balanço energético por semana">${out.join('')}</svg>`;
 }
