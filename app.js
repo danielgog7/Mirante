@@ -680,7 +680,16 @@ document.addEventListener('focusin', e => {
 document.addEventListener('focusout', () => esconderDica());
 addEventListener('scroll', () => { if (!elDica.hidden) esconderDica(); }, {passive: true});
 let tRz; addEventListener('resize', () => { clearTimeout(tRz); tRz = setTimeout(() => desenhar(), 160); });
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && DADOS && !DADOS.demo && Date.now() - (window._ultimaLeitura || 0) > 5 * 60e3){ window._ultimaLeitura = Date.now(); carregar(true); } });
+// Ao voltar ao Mirante, relê logo o que as outras apps guardaram neste dispositivo (por exemplo, a água que acabaste de pôr na Garfada);
+// ao GitHub só vai de 5 em 5 minutos.
+let tReler = null;
+const relerLocal = () => { clearTimeout(tReler); tReler = setTimeout(() => { if (DADOS && !DADOS.demo && !capaAberta) carregar(false); }, 400); };
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !DADOS || DADOS.demo) return;
+  if (Date.now() - (window._ultimaLeitura || 0) > 5 * 60e3){ window._ultimaLeitura = Date.now(); carregar(true); } else relerLocal();
+});
+// Se a Garfada, a Forja ou a Nascente estiverem abertas noutro separador, cada alteração chega aqui sem recarregar.
+addEventListener('storage', e => { if (e.key && !e.key.startsWith('mirante.') && e.key !== 'ia.comum') relerLocal(); });
 addEventListener('beforeinstallprompt', e => { e.preventDefault(); podeInstalar = e; if (vista === 'vLigacoes') renderLigacoes(); });
 addEventListener('online', () => carregar(true));
 

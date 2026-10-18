@@ -354,10 +354,12 @@ function fundirGarfada(local, remoto){
       for (const [k, v] of Object.entries(d.pesos)) if (ehObj(v) && (!pesos[k] || (pesos[k].ts || 0) < (v.ts || 0))) pesos[k] = v;
     }
   }
-  const refeicoes = [];
+  const refeicoes = [], aguaCha = {};
   for (const e of ref.values()){
     if (apag[e.id] && apag[e.id] >= (e.atualizado || 0)) continue;
     const f = num(e.fator) || 1, b = e.base || {}, mi = e.micros || {};
+    // Chás e infusões contam para a água do dia, como na Garfada (campo aguaMl de cada refeição).
+    if (num(e.aguaMl) > 0) aguaCha[e.data] = (aguaCha[e.data] || 0) + num(e.aguaMl) * f;
     refeicoes.push({
       id: e.id, ts: e.ts || 0, data: e.data, ref: e.refeicao || '', prato: String(e.prato || 'Refeição'), thumb: e.thumb || '', conf: e.confianca || '',
       kcal: num(b.kcal) * f, prot: num(b.prot) * f, hid: num(b.hid) * f, gord: num(b.gord) * f,
@@ -365,11 +367,15 @@ function fundirGarfada(local, remoto){
       potassio: num(mi.potassio) * f, calcio: num(mi.calcio) * f, ferro: num(mi.ferro) * f, vitc: num(mi.vitc) * f
     });
   }
-  const aguaMl = {};
-  for (const [k, v] of Object.entries(agua)) if (v.ml > 0) aguaMl[k] = v.ml;
+  const aguaMl = {}, cha = {};
+  for (const k of new Set([...Object.keys(agua), ...Object.keys(aguaCha)])){
+    const t = ((agua[k] && agua[k].ml) || 0) + Math.round(aguaCha[k] || 0);
+    if (t > 0) aguaMl[k] = t;
+    if (aguaCha[k]) cha[k] = Math.round(aguaCha[k]);
+  }
   const listaPesos = [];
   for (const [d, v] of Object.entries(pesos)) if (ehData(d) && v.kg != null && num(v.kg) > 20) listaPesos.push({d, kg: num(v.kg), ts: v.ts || 0});
-  return {refeicoes, agua: aguaMl, cfg, pesos: listaPesos};
+  return {refeicoes, agua: aguaMl, aguaCha: cha, cfg, pesos: listaPesos};
 }
 
 function fundirForja(local, remoto){
@@ -436,7 +442,7 @@ function montar(local, remG, remF, extra = {}, remN = null){
   const chave = mc.chave || gc.chave || fc.chave || nc.chave || '';
   const modelo = mc.chave ? (mc.modelo || 'gemini-flash-latest') : gc.chave ? (gc.modelo || 'gemini-flash-latest') : fc.chave ? (fc.modelo || 'gemini-flash-latest') : (nc.modelo || 'gemini-flash-latest');
   return Object.assign({
-    refeicoes: g.refeicoes, agua: g.agua, gcfg: g.cfg, treinos: f.treinos, fcfg: f.cfg,
+    refeicoes: g.refeicoes, agua: g.agua, aguaCha: g.aguaCha || {}, gcfg: g.cfg, treinos: f.treinos, fcfg: f.cfg,
     pesos: fundirPesos(g.pesos, f.pesos),
     temGarfada: g.refeicoes.length > 0 || !!g.cfg || g.pesos.length > 0,
     temForja: f.treinos.length > 0 || !!f.cfg,
