@@ -113,13 +113,13 @@ async function lerLocal(){
     pesosApag: LS.get('forja.pesosApag', {}) || {}
   };
   forja.existe = forja.treinos.length > 0 || ehObj(forja.cfg) || forja.pesos.length > 0;
-  const nP = LS.get('nascente.produtos', null), nR = LS.get('nascente.registos', null), nPe = LS.get('nascente.pele', null);
+  const nP = LS.get('nascente.produtos', null), nR = LS.get('nascente.registos', null), nPe = LS.get('nascente.pele', null), nRe = LS.get('nascente.respiracao', null);
   const nascente = {
     cfg: ehObj(LS.get('nascente.cfg', null)) ? LS.get('nascente.cfg', null) : null,
-    produtos: Array.isArray(nP) ? nP : [], registos: ehObj(nR) ? nR : {}, pele: Array.isArray(nPe) ? nPe : [],
+    produtos: Array.isArray(nP) ? nP : [], registos: ehObj(nR) ? nR : {}, pele: Array.isArray(nPe) ? nPe : [], respiracao: Array.isArray(nRe) ? nRe : [],
     apagados: LS.get('nascente.apagados', {}) || {}, revisao: LS.get('nascente.revisao', null), avaliacao: LS.get('nascente.avaliacao', null)
   };
-  nascente.existe = nascente.produtos.length > 0 || Object.keys(nascente.registos).length > 0 || nascente.pele.length > 0;
+  nascente.existe = nascente.produtos.length > 0 || Object.keys(nascente.registos).length > 0 || nascente.pele.length > 0 || nascente.respiracao.length > 0;
   nascente.fotos = nascente.existe ? await lerFotosNascente() : {};
   return {garfada, forja, nascente};
 }
@@ -416,13 +416,13 @@ function fundirPesos(g, f){
 
 function fundirNascente(local, remoto){
   const L = local || {}, apag = Object.assign({}, L.apagados || {});
-  let produtos = (L.produtos || []).slice(), pele = (L.pele || []).slice(), registos = Object.assign({}, L.registos || {});
+  let produtos = (L.produtos || []).slice(), pele = (L.pele || []).slice(), registos = Object.assign({}, L.registos || {}), respiracao = (L.respiracao || []).slice();
   let cfg = ehObj(L.cfg) ? Object.assign({}, L.cfg) : null, revisao = L.revisao || null, avaliacao = L.avaliacao || null;
   const r = remoto && remoto.ficheiros.get('nascente.json');
   if (ehObj(r) && r.app === 'nascente'){
     for (const [id, ts] of Object.entries(r.apagados || {})) if (!apag[id] || apag[id] < ts) apag[id] = ts;
     const porId = (loc, rem, campo) => { for (const x of rem || []){ if (!ehObj(x) || !x.id) continue; const i = loc.findIndex(o => o.id === x.id); if (i < 0) loc.push(x); else if ((x[campo] || 0) > (loc[i][campo] || 0)) loc[i] = x; } return loc; };
-    produtos = porId(produtos, r.produtos, 'atualizado'); pele = porId(pele, r.pele, 'ts');
+    produtos = porId(produtos, r.produtos, 'atualizado'); pele = porId(pele, r.pele, 'ts'); respiracao = porId(respiracao, r.respiracao, 'ts');
     for (const [k, v] of Object.entries(r.registos || {})) if (ehObj(v) && (!registos[k] || (v.ts || 0) > (registos[k].ts || 0))) registos[k] = v;
     if (ehObj(r.cfg) && (r.cfg.ts || 0) > ((cfg && cfg.ts) || 0)) cfg = Object.assign({}, cfg || {}, r.cfg);
     if (r.revisao && (!revisao || r.revisao.ts > revisao.ts)) revisao = r.revisao;
@@ -431,7 +431,8 @@ function fundirNascente(local, remoto){
   produtos = produtos.filter(o => ehObj(o) && !(apag[o.id] && apag[o.id] >= (o.atualizado || 0)));
   pele = pele.filter(o => ehObj(o) && ehData(o.d || '') && !(apag[o.id] && apag[o.id] >= (o.ts || 0))).sort((a, b) => a.d < b.d ? -1 : 1);
   for (const k of Object.keys(registos)) if (!ehData(k) || !ehObj(registos[k])) delete registos[k];
-  return {cfg, produtos, pele, registos, revisao, avaliacao, fotos: L.fotos || {}};
+  respiracao = respiracao.filter(o => ehObj(o) && ehData(o.d || '')).sort((a, b) => (a.ts || 0) - (b.ts || 0));
+  return {cfg, produtos, pele, registos, respiracao, revisao, avaliacao, fotos: L.fotos || {}};
 }
 
 function montar(local, remG, remF, extra = {}, remN = null){
@@ -446,7 +447,7 @@ function montar(local, remG, remF, extra = {}, remN = null){
     pesos: fundirPesos(g.pesos, f.pesos),
     temGarfada: g.refeicoes.length > 0 || !!g.cfg || g.pesos.length > 0,
     temForja: f.treinos.length > 0 || !!f.cfg,
-    nas, temNascente: nas.produtos.length > 0 || Object.keys(nas.registos).length > 0 || nas.pele.length > 0,
+    nas, temNascente: nas.produtos.length > 0 || Object.keys(nas.registos).length > 0 || nas.pele.length > 0 || nas.respiracao.length > 0,
     nome: (f.cfg && f.cfg.nome) || nas.cfg && nas.cfg.nome || '',
     ia: {chave, modelo},
     demo: false

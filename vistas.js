@@ -218,16 +218,17 @@ function renderPeso(){
 /* ================= PELE (Nascente) ================= */
 let peleMed = 'geral';
 function tilePele(S, anim){
-  const rp = ritualDia(chaveDe(hojeN())), r = reinoPele(), seq = sequenciaPele(), P = S.pele;
+  const rp = ritualDia(chaveDe(hojeN())), sh = shenDia(chaveDe(hojeN())), seq = sequenciaPele(), P = S.pele;
   return tile('ti-pele', 'vPele', 'Pele', 'pele', `<div class="tile-ilu nascente-mini">${svgNascente(rp)}</div>
     <div class="pele-legenda"><div class="pl-rit">${astroMini('m', rp.m ? 'feito' : rp.mP ? 'parcial' : 'falhou')}<span>Manhã<b>${rp.m ? 'feito' : rp.mP ? 'a meio' : 'por fazer'}</b></span></div>
       <div class="pl-rit">${astroMini('n', rp.n ? 'feito' : rp.nP ? 'parcial' : 'falhou')}<span>Noite<b>${rp.n ? 'feito' : rp.nP ? 'a meio' : 'por fazer'}</b></span></div></div>
-    <p class="tile-sub"><b>${esc(r.nome)}</b>${seq ? `, ${seq} ${seq === 1 ? 'dia' : 'dias'} seguidos` : ''}.${P && P.adesao != null ? ` Rituais da semana: ${P.feitas} de ${P.possiveis}.` : ''}</p>`);
+    <p class="tile-sub"><b>Shen ${sh.total} de 10</b> hoje${seq ? `, ${seq} ${seq === 1 ? 'dia' : 'dias'} seguidos` : ''}.${P && P.adesao != null ? ` Rituais da semana: ${P.feitas} de ${P.possiveis}.` : ''}</p>`);
 }
 function renderPele(){
   const {S, A} = semanasAtuais(), anim = consumirAnim();
   if (!D.temNascente){ $('#vPele').innerHTML = cabSemana(S) + vazioVista('Pele', 'Liga a Nascente para veres aqui os teus rituais, a evolução da pele e os frascos.', 'Ligar a Nascente'); return; }
   const P = S.pele, Pa = A.pele, rp = ritualDia(chaveDe(hojeN())), r = reinoPele(), seq = sequenciaPele(), fr = frascos(), cruz = cruzamentosPele();
+  const sh = shenDia(chaveDe(hojeN())), RS = respiracaoPeriodo(S.ini, Math.min(S.fim, hojeN())), RA = respiracaoPeriodo(S.ini - 7, S.ini - 1), CS = typeof cultivoMirante === 'function' ? cultivoMirante() : null;
   const SS = semanasRange(), ini = SS[0].ini, h = hojeN();
   const ult = D.nas.pele[D.nas.pele.length - 1], av = D.nas.avaliacao;
   const sin30 = pelePeriodo(h - 29, h).sinais, sinais = Object.entries(sin30).sort((a, b) => b[1] - a[1]).slice(0, 6), maxS = sinais.length ? sinais[0][1] : 1;
@@ -239,9 +240,12 @@ function renderPele(){
   <div class="area-grid">
     <section class="painel largo pele-hero">
       <div class="nascente-grande">${svgNascente(rp, {alto: true})}</div>
-      <div class="pele-reino">${glifoReinoP(r.i)}<div><span class="tile-cab">Reino de cultivo</span><h2>${esc(r.nome)}</h2><p class="sub">${esc(r.frase)}</p>
-        ${r.prox ? `<div class="barra-m"><div class="lin"><span>${esc(r.nivel)} · a seguir: ${esc(r.prox)}</span><b>faltam ${r.falta} qi</b></div><div class="trilho"><i style="width:${Math.max(2, r.pct * 100)}%;background:${COR.pele}"></i></div></div>` : ''}</div></div>
-      <dl class="stats"><div><dt>Rituais feitos</dt><dd>${r.pts}</dd></div><div><dt>Dias seguidos</dt><dd>${seq}</dd></div><div><dt>Esta semana</dt><dd>${P.feitas} <small>de ${P.possiveis}</small></dd></div><div><dt>Frascos em uso</dt><dd>${fr.uso.length}</dd></div></dl></section>
+      <div class="pele-reino">${CS ? `<div class="pele-cult">${avatarM({r: CS.r, f: CS.pct, mini: true, id: 'pl', tes: Object.assign({ativos: CS.ativos}, CS.hoje), desvio: CS.desvio, obj: CS.objetos})}</div>` : glifoReinoP(r.i)}<div><span class="tile-cab">Shen · o espírito</span><h2>${sh.total} <small>de 10 hoje</small></h2><p class="sub">Os rituais e a respiração da Nascente alimentam o Shen, na testa do teu cultivador${CS ? ` (${esc(CS.reino)})` : ''}.</p>
+        <ul class="shen-partes">${sh.partes.map(([n, v, m]) => `<li class="${v ? 'ok' : ''}"><span>${n}</span><b>${v ? '+' + v : '0'}<small> de ${m}</small></b></li>`).join('')}</ul></div></div>
+      <dl class="stats"><div><dt>Rituais feitos</dt><dd>${r.pts}</dd></div><div><dt>Dias seguidos</dt><dd>${seq}</dd></div><div><dt>Esta semana</dt><dd>${P.feitas} <small>de ${P.possiveis}</small></dd></div><div><dt>Respiração</dt><dd>${RS.completas} <small>${RS.completas === 1 ? 'sessão' : 'sessões'}</small></dd></div><div><dt>Frascos em uso</dt><dd>${fr.uso.length}</dd></div></dl></section>
+    <section class="painel"><h2>Respiração antes de dormir</h2><p class="sub">Os exercícios de respiração e relaxamento feitos na Nascente. Cada dia com uma sessão completa dá 3 de Shen.</p>
+      <div class="resp-semana">${Array.from({length: 7}, (_, i) => { const n = S.ini + i, k = chaveDe(n), feito = RS.dias.has(k), fut = n > hojeN(); return `<div class="rs-dia${feito ? ' feito' : ''}${fut ? ' fut' : ''}"><i></i><small>${'SegTerQuaQuiSexSábDom'.slice(i * 3, i * 3 + 3)}</small></div>`; }).join('')}</div>
+      <p class="contexto">${RS.completas ? `<b>${RS.completas}</b> ${RS.completas === 1 ? 'sessão completa' : 'sessões completas'} esta semana, <b>${RS.min} min</b> no total${RA.completas ? `; na semana anterior, ${RA.completas}` : ''}.${Object.keys(RS.porEx).length ? ` O mais feito: ${esc(Object.entries(RS.porEx).sort((a, b) => b[1] - a[1])[0][0])}.` : ''}` : 'Ainda sem respiração esta semana. Na Nascente, separador Meditar.'}</p></section>
     <section class="painel"><h2>Rituais da semana</h2><p class="sub">O sol é o ritual da manhã; a lua, o da noite. Meio aceso: começaste mas não terminaste.</p>
       ${htmlRituaisSemana(P)}
       <p class="contexto">${P.adesao != null ? `<b>${fmtInt(P.adesao * 100)}%</b> dos rituais feitos${Pa && Pa.adesao != null ? `; na semana anterior, ${fmtInt(Pa.adesao * 100)}%` : ''}.` : 'A semana ainda não começou.'}</p></section>

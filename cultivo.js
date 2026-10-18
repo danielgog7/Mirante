@@ -1,6 +1,6 @@
 'use strict';
 /* Mirante — o caminho do cultivo.
-   Os Três Tesouros dão qi: Jing (a comida, da Garfada), Qi (os treinos, da Forja) e Shen (os rituais, da Nascente); a Forma (o peso) dá um pouco.
+   Os Três Tesouros dão qi: Jing (a comida, da Garfada), Qi (os treinos, da Forja) e Shen (os rituais e a respiração, da Nascente); a Forma (o peso) dá um pouco.
    Nove reinos, do cume do Mirante ao firmamento. Tudo sai dos registos fundidos, por isso é igual no telemóvel e no PC.
    Regras completas em docs/plano-cultivo.md. */
 
@@ -17,24 +17,11 @@ const REINOS_M = [
   {nome: 'Ascensão ao Firmamento', niveis: ['Imortal'], custo: () => Infinity, frase: 'Tornaste-te estrela. O firmamento é o teu mirante.'}
 ];
 const NIVEIS_M = listaNiveis(REINOS_M);
-const TESOUROS = {
-  jing: {nome: 'Jing', sub: 'essência', app: 'Garfada', cor: '#9AC74B', rgb: '154,199,75', max: 12},
-  qi: {nome: 'Qi', sub: 'energia', app: 'Forja', cor: '#EE6A22', rgb: '238,106,34', max: 12},
-  shen: {nome: 'Shen', sub: 'espírito', app: 'Nascente', cor: '#4FD6D6', rgb: '79,214,214', max: 10},
-  forma: {nome: 'Forma', sub: 'o peso', app: 'Peso', cor: '#7AA2F5', rgb: '122,162,245', max: 4}
-};
-const TRES = ['jing', 'qi', 'shen'];
+// TESOUROS, TRES e faseLua estão em cultivador-arte.js (comum à Nascente).
 const FLUXOS_M = [[28, 1.6, 'Torrente'], [14, 1.4, 'Rio'], [6, 1.25, 'Corrente'], [2, 1.1, 'Brisa'], [0, 1, 'Disperso']];
 const fluxoM = serie => FLUXOS_M.find(f => serie >= f[0]);
 const perdaM = idx => Math.max(15, Math.round(Math.min(NIVEIS_M[idx].custo, 2000) * .06));
 
-// A lua verdadeira de cada dia (idade em dias desde a lua nova, iluminação e nome). Na lua cheia, o Shen vale o dobro.
-const LUA_NOVA_REF = Date.UTC(2000, 0, 6, 18, 14), MES_LUNAR = 29.530588853;
-function faseLua(n){
-  const idade = (((n * DIA + 12 * 36e5 - LUA_NOVA_REF) / DIA) % MES_LUNAR + MES_LUNAR) % MES_LUNAR, f = idade / MES_LUNAR;
-  const nome = f < .034 || f > .966 ? 'Lua nova' : f < .216 ? 'Lua crescente' : f < .284 ? 'Quarto crescente' : f < .466 ? 'Crescente gibosa' : f < .534 ? 'Lua cheia' : f < .716 ? 'Minguante gibosa' : f < .784 ? 'Quarto minguante' : 'Lua minguante';
-  return {idade, f, ilum: (1 - Math.cos(2 * Math.PI * f)) / 2, nome, cheia: Math.abs(idade - MES_LUNAR / 2) <= 1};
-}
 
 // Dias com registo de cada app e recordes por dia (calculado uma vez por cada leitura dos dados).
 function baseCultivo(){
@@ -44,6 +31,7 @@ function baseCultivo(){
   if (D.nas){
     for (const [k, r] of Object.entries(D.nas.registos || {})) if (r.mF || r.nF) dias.shen.add(k);
     for (const p of D.nas.pele || []) dias.shen.add(p.d);
+    for (const x of D.nas.respiracao || []) if (x.completo) dias.shen.add(x.d);
   }
   for (const k of IDX.peso.keys()) dias.forma.add(k);
   for (const l of IDX.hist.values()){
@@ -52,7 +40,7 @@ function baseCultivo(){
   }
   const prim = {};
   for (const t of Object.keys(dias)){ let m = null; for (const k of dias[t]) if (!m || k < m) m = k; prim[t] = m ? numDe(m) : null; }
-  return {dias, recordes, prim, pele: new Set((D.nas && D.nas.pele || []).map(p => p.d))};
+  return {dias, recordes, prim, pele: new Set((D.nas && D.nas.pele || []).map(p => p.d)), resp: new Set((D.nas && D.nas.respiracao || []).filter(x => x.completo).map(x => x.d))};
 }
 
 // Pontos de um dia, sem multiplicadores.
@@ -66,9 +54,10 @@ function pontosDia(n, B){
   }
   if (m.agua && (D.agua[k] || 0) >= m.agua) jing += 1;
   if (B.dias.qi.has(k)){ qi += 10; if (B.recordes.has(k)) qi += 2; }
-  if (reg.mF) shen += 4;
-  if (reg.nF) shen += 4;
-  if (B.pele.has(k)) shen += 2;
+  if (reg.mF) shen += 3;
+  if (reg.nF) shen += 3;
+  if (B.resp.has(k)) shen += 3;   // uma sessão de respiração completa na Nascente
+  if (B.pele.has(k)) shen += 1;
   const cheia = faseLua(n).cheia;
   if (cheia) shen *= 2;
   if (B.dias.forma.has(k)) forma += 1;
@@ -167,7 +156,15 @@ function cultivoMirante(){
   CULT = Object.assign({qi, serie, fluxo: Fh[2], mult: Fh[1], dias, eventos, hoje: ultimoDia.p, ativos: ultimoDia.ativos, desvio: ultimoDia.desvio,
     gargalo, total, perdido, chao, pilulas, usadas, ritmo, projecao, lua: faseLua(h), objetos: objetosCultivo(B, ultimoDia.ativos, h)}, info);
   CULT_D = D; CULT_H = h;
+  if (!D.demo) guardarRetrato(CULT);
   return CULT;
+}
+// O retrato do cultivador fica guardado neste navegador para a Nascente o desenhar igual (mesmo endereço, mesma memória).
+function guardarRetrato(c){
+  try {
+    ML.set('retrato', {v: 1, ts: Date.now(), dia: chaveData(new Date()), r: c.r, reino: c.reino, nivel: c.nivel, frase: c.frase, pct: c.pct,
+      fluxo: c.fluxo, fluxoN: Math.max(0, 4 - FLUXOS_M.findIndex(f => f[2] === c.fluxo)), serie: c.serie, hoje: c.hoje, ativos: c.ativos, desvio: c.desvio, obj: c.objetos});
+  } catch(e){}
 }
 // Os objetos que cada app dá ao cultivador.
 const NIVEIS_ESPADA = ['Ferro bruto', 'Aço temperado', 'Fio de luz', 'Lâmina em brasa', 'Espada do dragão'];
@@ -184,5 +181,5 @@ function objetosCultivo(B, ativos, h){
   };
 }
 // Texto curto do que falta para romper.
-const NOME_FALTA = {jing: 'comer na meta (Garfada)', qi: 'treinar o que planeaste (Forja)', shen: 'fazer os rituais (Nascente)', nota: 'uma semana com nota 70 ou mais'};
+const NOME_FALTA = {jing: 'comer na meta (Garfada)', qi: 'treinar o que planeaste (Forja)', shen: 'fazer os rituais e a respiração (Nascente)', nota: 'uma semana com nota 70 ou mais'};
 function textoGargalo(c){ return c.gargalo.preso ? 'No limite do reino. Para romper falta: ' + c.gargalo.falta.map(f => NOME_FALTA[f]).join(', ') + '.' : ''; }

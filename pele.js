@@ -65,6 +65,19 @@ function reinoPele(){
   return {pts, i: c.r, nome: c.reino, frase: c.frase, nivel: c.nivel, prox: c.prox, falta: c.prox ? Math.max(0, c.custo - c.dentro) : 0, pct: c.pct, qi: c.qi};
 }
 
+/* ---------- Shen e respiração (Nascente) ---------- */
+// O Shen do dia, peça a peça (as mesmas regras do cultivo.js): manhã 3, noite 3, respiração 3, pele 1.
+function shenDia(k){
+  const r = (D.nas && D.nas.registos[k]) || {}, resp = (D.nas && D.nas.respiracao || []).some(x => x.d === k && x.completo), pele = (D.nas && D.nas.pele || []).some(x => x.d === k);
+  const partes = [['Manhã', r.mF ? 3 : 0, 3], ['Noite', r.nF ? 3 : 0, 3], ['Respiração', resp ? 3 : 0, 3], ['Pele', pele ? 1 : 0, 1]];
+  return {partes, total: partes.reduce((t, p) => t + p[1], 0)};
+}
+function respiracaoPeriodo(ini, fim){
+  const l = (D.nas && D.nas.respiracao || []).filter(x => { const n = numDe(x.d); return n >= ini && n <= fim; });
+  const porEx = {}; for (const x of l) porEx[x.nome || x.ex] = (porEx[x.nome || x.ex] || 0) + 1;
+  return {l, completas: l.filter(x => x.completo).length, min: Math.round(l.reduce((t, x) => t + (+x.dur || 0), 0) / 60), dias: new Set(l.filter(x => x.completo).map(x => x.d)), porEx};
+}
+
 /* ---------- Rituais ---------- */
 function ritualDia(k){
   const r = (D.nas && D.nas.registos[k]) || {}, nm = ehObj(r.m) ? Object.keys(r.m).length : 0, nn = ehObj(r.n) ? Object.keys(r.n).length : 0;

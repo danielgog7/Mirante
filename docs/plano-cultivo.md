@@ -8,7 +8,9 @@ Ao abrir o Mirante aparece uma capa com o cultivador (o mesmo personagem da capa
 Ele cultiva com o qi que vem de todas as apps. O cenário sobe com o reino: começa no cume do Mirante e acaba entre as galáxias.
 Três toques despertam-no e levam para a app.
 
-Base de código a reutilizar (não redesenhar): `nascente/cultivo.js`
+Desenho comum: `cultivador-arte.js` e `cultivador-arte.css` são iguais no Mirante e na Nascente (personagem, tesouros, objetos, lua, palcos). Mudar num e copiar para o outro. O Mirante guarda o retrato do cultivador em `mirante.retrato` (localStorage) e a Nascente desenha-o igual na secção Meditar.
+
+Base de código original: `nascente/cultivo.js` (já retirado da Nascente)
 - `avatarSVG()` (personagem, 7 aparências por reino), `VISUAL_C`
 - motor de partículas da capa (`capaQi`, `novaMote`, `passoCapa`, `rajadaCapa`), `somCapa`, `toqueCapa`, `fecharCapa`, `armarInatividade`, `mensagemCapa`
 - a estrutura `REINOS_C` / `NIVEIS_C` / `nivelInfo` (reinos com níveis de custo variável e chão no início de cada reino)
@@ -19,13 +21,13 @@ Base de código a reutilizar (não redesenhar): `nascente/cultivo.js`
 |---|---|---|---|---|
 | Jing (essência) | Garfada | ventre (cy 238) | verde #9AC74B | 12 |
 | Qi (energia) | Forja | peito (cy 190) | laranja #EE6A22 | 12 |
-| Shen (espírito) | Nascente | testa (cy 97) | ciano #4FD6D6 | 10 |
+| Shen (espírito) | Nascente (rituais e respiração) | testa (cy 97) | ciano #4FD6D6 | 10 |
 | Forma | Peso | a lua atrás dele (fase = % até à meta) | azul #7AA2F5 | 4 |
 
 Ganhos por dia:
 - Jing: 2 ou mais refeições registadas +4; calorias entre 90 e 110% da meta +5; proteína >= 90% da meta +2; água na meta +1.
 - Qi: treino concluído +10; recorde nesse treino +2. Os dias de descanso não tiram nada: ao fechar a semana, treinos >= meta dá +12 ("semana forjada").
-- Shen: ritual da manhã +4, da noite +4, registo da pele +2.
+- Shen: ritual da manhã +3, da noite +3, sessão de respiração completa na Nascente +3, registo da pele +1.
 - Forma: pesagem +1; ao fechar a semana, média a andar na direção da meta +6.
 
 Fluxo (multiplicador por dias equilibrados seguidos; os mesmos nomes da Nascente):

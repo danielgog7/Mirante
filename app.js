@@ -404,7 +404,7 @@ function cartasRelato(S, A){
     const P = S.pele, r = reinoPele(), g = P.medias.geral, ga = A.pele && A.pele.medias.geral;
     C.push({f: 'pele', html: `<p class="rl-sup">Pele</p><div class="rl-big">${P.feitas}<small>de ${P.possiveis}</small></div><p class="rl-txt">rituais da Nascente feitos${S.emCurso ? ' até agora' : ''}.</p>
       ${htmlRituaisSemana(P)}
-      <ul class="rl-linhas"><li>Reino de cultivo<b>${esc(r.nome)}</b></li>${g != null ? `<li>Estado da pele<b>${PELE_MED_I.geral[2][Math.round(g)]}${ga != null ? `<small>antes ${PELE_MED_I.geral[2][Math.round(ga)].toLowerCase()}</small>` : ''}</b></li>` : ''}<li>Dias seguidos<b>${sequenciaPele()}</b></li></ul>`});
+      <ul class="rl-linhas"><li>Respiração<b>${respiracaoPeriodo(S.ini, Math.min(S.fim, hojeN())).completas} sessões</b></li>${g != null ? `<li>Estado da pele<b>${PELE_MED_I.geral[2][Math.round(g)]}${ga != null ? `<small>antes ${PELE_MED_I.geral[2][Math.round(ga)].toLowerCase()}</small>` : ''}</b></li>` : ''}<li>Dias seguidos<b>${sequenciaPele()}</b></li></ul>`});
   }
 
   const L = leituras(S, A).slice(0, 3);
