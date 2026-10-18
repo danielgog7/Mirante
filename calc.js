@@ -222,6 +222,7 @@ function semana(ini){
   if (ritmo != null && objPeso && tFim && Math.sign(ritmo) === Math.sign(objPeso - tFim.t) && Math.abs(ritmo) > 0.02)
     S.peso.semanasAteMeta = Math.abs((objPeso - tFim.t) / ritmo);
 
+  S.pele = D.temNascente ? pelePeriodo(ini, fim) : null;
   S.nota = notaSemana(S);
   CACHE_SEM.set(ini, S);
   return S;
@@ -234,7 +235,9 @@ function melhorSerie(lista, comPeso){
 
 /* ---------- Nota da semana ---------- */
 // Comida 45 (o score da Garfada), treino 40 (frequência, cobertura muscular, progressão), peso 15 (ritmo face ao objetivo).
-const NOTA_PESOS = {comida: 45, treino: 40, peso: 15};
+// Com a Nascente ligada entra a pele (rituais feitos e estado da pele); os pesos normalizam-se entre as partes que existem.
+const NOTA_PESOS = {comida: 45, treino: 40, peso: 15, pele: 20};
+const PARTES_NOTA = ['comida', 'treino', 'peso', 'pele'];
 function notaSemana(S){
   const c = {};
   if (S.comida.score != null) c.comida = S.comida.score;
@@ -258,7 +261,8 @@ function notaSemana(S){
     c.pesoObj = obj; c.pesoPct = pct;
   }
   let s = 0, w = 0;
-  for (const k of ['comida', 'treino', 'peso']) if (c[k] != null){ s += NOTA_PESOS[k] * c[k]; w += NOTA_PESOS[k]; }
+  if (S.pele && S.decorridos){ const np = notaPele(S.pele); if (np != null) c.pele = np; }
+  for (const k of PARTES_NOTA) if (c[k] != null){ s += NOTA_PESOS[k] * c[k]; w += NOTA_PESOS[k]; }
   return {total: w ? Math.round(s / w) : null, c, faixa: w ? faixa(Math.round(s / w)) : '', provisoria: S.emCurso};
 }
 
@@ -368,7 +372,7 @@ function resumoParaIA(S, A){
   const m = S.metas, t = S.treino;
   return {
     semana: `${chaveDe(S.ini)} a ${chaveDe(S.fim)}`, em_curso: S.emCurso,
-    nota_0a100: S.nota.total, componentes: {comida: S.nota.c.comida ?? null, treino: S.nota.c.treino ?? null, peso: S.nota.c.peso ?? null},
+    nota_0a100: S.nota.total, componentes: {comida: S.nota.c.comida ?? null, treino: S.nota.c.treino ?? null, peso: S.nota.c.peso ?? null, pele: S.nota.c.pele ?? null},
     metas: {kcal: m.kcal, proteina_g: m.prot, agua_ml: m.agua},
     comida: S.comida.tem ? {dias_registados: S.comida.diasReg, kcal_media: Math.round(S.comida.kcalMed), proteina_media_g: Math.round(S.comida.protMed),
       dias_na_meta_kcal: S.comida.naMeta, dias_proteina_ok: S.comida.protOk, agua_media_ml: Math.round(S.comida.aguaMed),

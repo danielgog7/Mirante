@@ -2,7 +2,7 @@
 /* Mirante — gráficos em SVG, desenhados à largura real do ecrã para o texto ficar sempre nítido.
    Cores por papel: comida (verde-pirilampo), treino (brasa), peso (azul-estrela). O dourado é só para metas. */
 
-const COR = {comida: '#9AC74B', treino: '#EE6A22', peso: '#7AA2F5', ouro: '#C9A86A', luar: '#ECE8DE', nevoa: '#A2A8B7', bruma: '#6D7385', aresta: '#262D3D', aresta2: '#353D52'};
+const COR = {comida: '#9AC74B', treino: '#EE6A22', peso: '#7AA2F5', pele: '#4FD6D6', ouro: '#C9A86A', luar: '#ECE8DE', nevoa: '#A2A8B7', bruma: '#6D7385', aresta: '#262D3D', aresta2: '#353D52'};
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const r1 = v => Math.round(v * 10) / 10;
 
@@ -113,7 +113,7 @@ function arco(cx, cy, r, a0, a1){
   return `M${r1(x0)} ${r1(y0)}A${r} ${r} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${r1(x1)} ${r1(y1)}`;
 }
 function svgNota(nota, tam = 176, anim = false){
-  const c = tam / 2, r = c - 10, gap = .11, partes = ['comida', 'treino', 'peso'].filter(k => nota.c[k] != null);
+  const c = tam / 2, r = c - 10, gap = .11, partes = PARTES_NOTA.filter(k => nota.c[k] != null);
   const tot = partes.reduce((a, k) => a + NOTA_PESOS[k], 0);
   let a = -Math.PI / 2 + gap / 2, out = '', j = 0;
   for (const k of partes){
@@ -177,7 +177,7 @@ function svgBarras(itens, W, H, op){
   if (op.meta && op.banda) out.push(`<rect x="${L}" y="${r1(Y(op.meta * (1 + op.banda)))}" width="${W - L - R}" height="${r1(Y(op.meta * (1 - op.banda)) - Y(op.meta * (1 + op.banda)))}" fill="${COR.ouro}" opacity=".09"/>`);
   if (op.meta){
     out.push(`<line x1="${L}" x2="${W - R}" y1="${r1(Y(op.meta))}" y2="${r1(Y(op.meta))}" stroke="${COR.ouro}" stroke-width="1.2"/>`);
-    out.push(`<text x="${L + 2}" y="${r1(Y(op.meta) - 5)}" class="eixo forte">${esc(op.rotMeta || 'meta')}</text>`);
+    out.push(`<text x="${L + 2}" y="${r1(Y(op.meta) - 5)}" class="eixo forte" paint-order="stroke" stroke="#121620" stroke-width="4" stroke-linejoin="round">${esc(op.rotMeta || 'meta')}</text>`);
   }
   const u = itens[n - 1];
   if (u && u.v > 0) out.push(`<text x="${r1(L + banda * (n - .5))}" y="${r1(Y(u.v) - 6)}" text-anchor="middle" class="valor">${op.fmt ? op.fmt(u.v) : fmtInt(u.v)}</text>`);

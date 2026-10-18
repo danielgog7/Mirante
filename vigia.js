@@ -86,6 +86,27 @@ function veredictoDe(fx, per, K, extra){
   const b = K.pos[0], m = K.neg[0];
   return `${extra ? extra + ' ' + abre.charAt(0).toLowerCase() + abre.slice(1) : abre}${b ? ' O melhor: ' + b.curto + '.' : ''}${m ? ' A corrigir: ' + m.curto + '.' : ''}`.trim();
 }
+function regrasPele(K, P, Pa, ini, fim, cedo, nomePer){
+  const esc4 = v => PELE_MED_I.geral[2][Math.round(clamp(v, 0, 4))].toLowerCase();
+  if (P.adesao >= .85) K.bom(62, 'pele', `Rituais da pele feitos em <b>${P.feitas} de ${P.possiveis}</b> sessões.`, 'rituais da pele em dia');
+  else if (P.adesao < .6 && !cedo) K.mau(58, 'pele', `Só <b>${P.feitas} de ${P.possiveis}</b> rituais da pele feitos. A pele precisa de constância para responder.`, 'rituais da pele em falta', 'ritual');
+  const g = P.medias.geral, ga = Pa && Pa.medias.geral;
+  if (g != null && ga != null){
+    if (g - ga >= .4) K.bom(56, 'pele', `A pele está melhor: estado geral de ${esc4(ga)} para <b>${esc4(g)}</b>.`, 'pele a melhorar');
+    else if (ga - g >= .4) K.mau(56, 'pele', `A pele piorou: estado geral de ${esc4(ga)} para <b>${esc4(g)}</b>.`, 'pele a piorar', 'pelePior');
+  }
+  const b = P.medias.borbulhas, ba = Pa && Pa.medias.borbulhas;
+  if (b != null && ba != null){
+    if (ba - b >= .5) K.bom(44, 'pele', `Menos borbulhas do que ${nomePer === 'mês' ? 'no mês anterior' : 'na semana anterior'}.`, 'menos borbulhas');
+    else if (b - ba >= .5) K.mau(46, 'pele', `Mais borbulhas do que ${nomePer === 'mês' ? 'no mês anterior' : 'na semana anterior'}.`, 'mais borbulhas', 'acucarPele');
+  }
+  if (!P.regs.length && D.nas.pele.length && !cedo) K.mau(30, 'pele', `Sem registos da pele ${nomePer === 'mês' ? 'este mês' : 'esta semana'}. Regista 1 ou 2 vezes por semana para veres se a rotina funciona.`, 'pele sem registos', 'registoPele');
+  const fr = frascos();
+  if (fr.alertas.length){ const x = fr.alertas[0]; K.mau(x.v.estado === 'expirado' ? 48 : 30, 'pele', x.v.estado === 'expirado' ? `<b>${esc(x.p.nome)}</b> passou da validade. Deita-o fora e marca-o como acabado na Nascente.` : `<b>${esc(x.p.nome)}</b> expira dentro de ${x.v.dias} ${x.v.dias === 1 ? 'dia' : 'dias'}.`, 'frasco a expirar'); }
+  const spf = usoProtetor(ini, fim);
+  if (spf && fr.fotossens.length && spf.com < spf.manhas * .9) K.mau(52, 'pele', `Protetor solar em só <b>${spf.com} de ${spf.manhas}</b> manhãs, com ativos que deixam a pele sensível ao sol.`, 'protetor solar em falta', 'spf');
+  else if (spf && fr.fotossens.length && spf.manhas >= 3) K.bom(36, 'pele', `Protetor solar em <b>${spf.com} de ${spf.manhas}</b> manhãs.`, 'protetor solar em dia');
+}
 const CONSELHO = {
   prot: o => `Junta uma fonte de proteína a cada refeição (ovos, iogurte grego, frango, atum, leguminosas). ${forcaPrio(o) ? 'Para ganhar músculo, é o ajuste com mais efeito.' : 'Ajuda a saciedade e protege o músculo.'}`,
   kcalAlta: () => 'Aponta à meta todos os dias e planeia o fim de semana com antecedência: é aí que o saldo derrapa.',
@@ -97,7 +118,12 @@ const CONSELHO = {
   esquecidos: () => 'Na próxima semana, dá pelo menos 6 séries aos grupos que ficaram esquecidos.',
   pesagens: () => 'Pesa-te 3 a 4 vezes por semana, de manhã, antes de comer.',
   cargas: () => 'Dorme e come o suficiente nos dias de treino: cargas a descer costumam ser cansaço, não falta de força.',
-  fds: () => 'Ao fim de semana, decide de antemão uma refeição livre e mantém as outras dentro da meta.'
+  fds: () => 'Ao fim de semana, decide de antemão uma refeição livre e mantém as outras dentro da meta.',
+  ritual: () => 'Deixa os frascos à vista, junto à escova de dentes: o ritual da pele cola-se a um hábito que já tens.',
+  registoPele: () => 'Regista a pele na Nascente 2 vezes por semana, sempre à mesma hora e com a mesma luz.',
+  spf: () => 'Põe o protetor solar no fim do ritual da manhã, todos os dias, mesmo com o céu nublado.',
+  pelePior: () => 'Se a pele piorou, tira um ativo forte durante uma semana e vê se acalma. Se continuar, fala com um dermatologista.',
+  acucarPele: () => 'Experimenta duas semanas com menos açúcar (bebidas e doces) e compara as borbulhas na Nascente.'
 };
 
 /* ---------- Hoje ---------- */
@@ -118,7 +144,6 @@ function analiseDia(){
   // O treino entra com 25%: feito hoje vale 100; descanso com a semana em dia, 85; descanso com a semana atrasada, 40.
   let notaTreino = null;
   if (D.temForja){ const espT = t.alvo * S.decorridos / 7; notaTreino = d.treinos.length ? 100 : t.sessoes + .5 >= espT ? 85 : 40; }
-  if (notaComida != null) nota = notaTreino == null ? notaComida : Math.round(notaComida * .75 + notaTreino * .25);
   // Treino
   if (d.treinos.length){
     const tr = d.treinos[0], min = Math.round((tr.fim - tr.inicio) / 60000), rec = recordesEntre(tsDe(h), tsDe(h + 1));
@@ -163,6 +188,22 @@ function analiseDia(){
     if (dif > .5) notaPeso = ` A pesagem de hoje está ${fmt1(dif)} kg acima da tendência: é água e sal, não gordura.`;
     else if (dif < -.5) notaPeso = ` A pesagem de hoje está ${fmt1(-dif)} kg abaixo da tendência: bom sinal, mas é a tendência que conta.`;
   }
+  // Pele (Nascente): os rituais de hoje
+  let notaPeleDia = null;
+  if (D.temNascente){
+    const rp = ritualDia(d.k), espP = (rp.m || H >= 12 ? 1 : 0) + (rp.n || H >= 23 ? 1 : 0), feitasP = (rp.m ? 1 : 0) + (rp.n ? 1 : 0), fr = frascos();
+    if (espP) notaPeleDia = Math.round(100 * Math.min(1, feitasP / espP));
+    if (rp.m) K.bom(46, 'pele', `Ritual da manhã feito${fr.temSPF ? ', com protetor solar no fim' : ''}.`, 'ritual da manhã feito');
+    else if (H >= 12) K.mau(fr.fotossens.length ? 62 : 46, 'pele', `Falta o ritual da manhã.${fr.fotossens.length ? ` Com ${lista(fr.fotossens.slice(0, 2).map(p => esc(p.nome)))} na rotina, o protetor solar é obrigatório.` : ''}`, 'ritual da manhã por fazer', 'ritual');
+    if (rp.n) K.bom(44, 'pele', 'Ritual da noite feito.', 'ritual da noite feito');
+    else if (H >= 21) K.mau(42, 'pele', 'Ainda falta o ritual da noite, antes de dormir.', 'ritual da noite por fazer', 'ritual');
+    const pl = D.nas.pele.find(x => x.d === d.k);
+    if (pl && pl.geral != null) K.bom(26, 'pele', `Registaste a pele hoje: estado geral <b>${PELE_MED_I.geral[2][pl.geral].toLowerCase()}</b>.`, 'pele registada');
+  }
+  {
+    const partes = [[notaComida, 60], [notaComida != null ? notaTreino : null, 20], [notaPeleDia, 20]].filter(x => x[0] != null);
+    nota = notaComida == null && notaPeleDia == null ? null : Math.round(partes.reduce((a, x) => a + x[0] * x[1], 0) / partes.reduce((a, x) => a + x[1], 0));
+  }
   K.ordenar();
   // Conselho
   const resto = m.kcal - d.kcal, restoP = Math.max(0, m.prot - d.prot);
@@ -175,10 +216,10 @@ function analiseDia(){
   conselho += notaPeso;
   const fx = faixaPer(nota, 'dia');
   let veredicto;
-  if (!d.nRef) veredicto = H < 11 ? 'O dia ainda agora começou. Vamos a isso.' : 'Ainda não há refeições registadas hoje.';
+  if (!d.nRef) veredicto = H < 11 ? 'O dia ainda agora começou. Vamos a isso.' : `Ainda não há refeições registadas hoje.${K.pos.find(x => x.area === 'pele') ? ' Mas a pele já teve o seu ritual.' : ''}`;
   else if (!fechado) veredicto = `Até às ${hh}: ${fmtInt(d.kcal)} kcal e ${fmtInt(d.prot)} g de proteína. ${nota >= 80 ? 'O dia está a correr bem.' : nota >= 60 ? 'O dia está razoável, mas há margem.' : 'O resto do dia pode endireitar isto.'}${K.neg[0] ? ' Atenção: ' + K.neg[0].curto + '.' : ''}`;
   else veredicto = veredictoDe(fx, 'dia', K);
-  return {per: 'dia', nota, notaComida, notaTreino, faixa: fx, provisoria: !fechado && nota != null, pos: K.pos, neg: K.neg, conselho, veredicto, d, m, H, S};
+  return {per: 'dia', nota, notaComida, notaTreino, notaPeleDia, faixa: fx, provisoria: !fechado && nota != null, pos: K.pos, neg: K.neg, conselho, veredicto, d, m, H, S};
 }
 
 /* ---------- Esta semana ---------- */
@@ -221,6 +262,8 @@ function analiseSemana(){
     else if (r.lento) K.mau(48, 'peso', `O peso mexe devagar: <b>${sinal(p.ritmo, fmt1)} kg por semana</b>.`, 'peso a mexer devagar', o.peso === 'perder' ? 'kcalAlta' : 'kcalBaixa');
   }
   if (D.pesos.length && p.pesagens.length < 3 && (!S.emCurso || S.decorridos >= 5)) K.mau(34, 'peso', `Só <b>${p.pesagens.length}</b> ${p.pesagens.length === 1 ? 'pesagem' : 'pesagens'} esta semana. Com 3 ou mais, a tendência fica fiável.`, 'poucas pesagens', 'pesagens');
+  // Pele (Nascente)
+  if (S.pele && S.pele.adesao != null) regrasPele(K, S.pele, A.pele, S.ini, Math.min(S.fim, h), S.emCurso && S.decorridos < 5, 'semana');
   K.ordenar();
   const nota = S.nota.total, fx = faixaPer(nota, 'semana');
   const F = focos(S);
@@ -258,7 +301,8 @@ function analiseMes(){
   if (D.temForja){ const freq = clamp(M.nSess / Math.max(1, M.esp), 0, 1), prog = M.sobe + M.desce ? M.sobe / (M.sobe + M.desce) : null; comps.treino = Math.round(100 * (prog == null ? freq : freq * .6 + prog * .4)); }
   const ritmo = ritmoPeso(h, 28);
   if (ritmo != null && M.tF){ const r = avaliaRitmo(ritmo, M.tF.t, o.peso); comps.peso = Math.round(r.score * 100); }
-  let s = 0, w = 0; for (const k of ['comida', 'treino', 'peso']) if (comps[k] != null){ s += NOTA_PESOS[k] * comps[k]; w += NOTA_PESOS[k]; }
+  const PM = D.temNascente ? pelePeriodo(P.ini, P.fim) : null; if (PM){ const np = notaPele(PM); if (np != null) comps.pele = np; }
+  let s = 0, w = 0; for (const k of PARTES_NOTA) if (comps[k] != null){ s += NOTA_PESOS[k] * comps[k]; w += NOTA_PESOS[k]; }
   const nota = w ? Math.round(s / w) : null, fx = faixaPer(nota, 'mes');
   // Comida
   if (M.comp.length){
@@ -300,6 +344,13 @@ function analiseMes(){
   // Melhor semana do mês
   const sems = []; for (let n = segundaDe(P.ini); n <= h; n += 7){ const X = semana(n); if (X.nota.total != null && !X.emCurso) sems.push(X); }
   if (sems.length >= 2){ const b = sems.reduce((a, x) => x.nota.total > a.nota.total ? x : a); K.bom(38, 'nota', `A melhor semana foi a de <b>${rotSemana(b.ini)}</b>, com nota ${b.nota.total}.`, `semana de ${rotSemana(b.ini)} em destaque`); }
+  // Pele (Nascente) e cruzamentos com a comida
+  if (PM && PM.adesao != null){
+    regrasPele(K, PM, pelePeriodo(Pa.ini, Pa.fim), P.ini, P.fim, M.nd < 7, 'mês');
+    for (const x of cruzamentosPele()) if (x.forte) K.mau(x.id === 'acucar' ? 54 : 40, 'pele', x.txt, x.id === 'acucar' ? 'açúcar ligado às borbulhas' : 'pouca água ligada à secura', x.id === 'acucar' ? 'acucarPele' : 'agua');
+    const fr = frascos(), acab = fr.acabados.filter(p => p.fim >= chaveDe(P.ini));
+    if (acab.length) K.bom(24, 'pele', `Gastaste até ao fim <b>${acab.length} ${acab.length === 1 ? 'frasco' : 'frascos'}</b> este mês (${esc(lista(acab.slice(0, 3).map(p => p.nome)))}).`, 'frascos usados até ao fim');
+  }
   K.ordenar();
   const conselho = K.neg[0] && CONSELHO[K.neg[0].id] ? CONSELHO[K.neg[0].id](o, m) : 'Mantém o rumo: a constância vale mais do que semanas perfeitas.';
   const veredicto = nota == null ? 'Ainda há poucos dados este mês.' : veredictoDe(fx, 'mes', K, `${cap(P.nome)}, ${M.nd} ${M.nd === 1 ? 'dia' : 'dias'}:`);
@@ -399,8 +450,13 @@ function anelNota(v, anim){
 }
 
 /* ---------- O painel do vigia ---------- */
+function kpisNota(c, extra){
+  const nomes = {comida: 'Comida', treino: 'Treino', peso: 'Peso', pele: 'Pele'};
+  const itens = PARTES_NOTA.filter(k => c[k] != null).map(k => [nomes[k], c[k]]).concat(extra || []);
+  return `<dl class="vh-kpis">${itens.map(([n, v]) => `<div><dt>${n}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
+}
 function subPer(tab, a){
-  if (tab === 'dia') return a.nota == null ? (a.d.nRef ? 'Ainda pouco registo para dar nota.' : 'Sem refeições registadas.') : `${a.provisoria ? `Ritmo até às ${Math.floor(a.H)}h. ` : ''}Comida ${a.notaComida}${a.notaTreino != null ? `, treino ${a.notaTreino}` : ''}.`;
+  if (tab === 'dia') return a.nota == null ? (a.d.nRef ? 'Ainda pouco registo para dar nota.' : 'Sem refeições registadas.') : `${a.provisoria ? `Ritmo até às ${Math.floor(a.H)}h. ` : ''}${[a.notaComida != null ? `comida ${a.notaComida}` : '', a.notaComida != null && a.notaTreino != null ? `treino ${a.notaTreino}` : '', a.notaPeleDia != null ? `pele ${a.notaPeleDia}` : ''].filter(Boolean).join(', ').replace(/^./, c => c.toUpperCase())}.`;
   if (tab === 'semana') return `${rotSemana(a.S.ini)}${a.provisoria ? ', em curso' : ''}.`;
   return `${cap(a.P.nome)}, ${a.M.nd} ${a.M.nd === 1 ? 'dia' : 'dias'}${a.provisoria ? ' até hoje' : ''}.`;
 }
@@ -435,12 +491,12 @@ function renderVigiaHero(anim){
   if (tab === 'dia'){
     const d = a.d, t = an.semana.S.treino;
     resumo = `<div class="aneis" role="group" aria-label="Hoje, face às metas">${anelMini(d.kcal / m.kcal, COR.comida, fmtInt(d.kcal), 'Calorias', `de ${fmtInt(m.kcal)}`, anim)}${anelMini(d.prot / m.prot, COR.comida, fmtInt(d.prot) + ' g', 'Proteína', `de ${m.prot} g`, anim)}
-      ${anelMini(d.agua / m.agua, '#4FC3F7', d.agua ? fmt1(d.agua / 1000) + ' L' : '—', 'Água', `de ${fmt1(m.agua / 1000)} L`, anim)}${D.temForja ? anelMini(d.treinos.length ? 1 : t.sessoes / Math.max(1, t.alvo), COR.treino, d.treinos.length ? 'Feito' : `${t.sessoes}/${t.alvo}`, 'Treino', d.treinos.length ? 'hoje' : 'na semana', anim) : ''}</div>`;
+      ${anelMini(d.agua / m.agua, '#4FC3F7', d.agua ? fmt1(d.agua / 1000) + ' L' : '—', 'Água', `de ${fmt1(m.agua / 1000)} L`, anim)}${D.temForja ? anelMini(d.treinos.length ? 1 : t.sessoes / Math.max(1, t.alvo), COR.treino, d.treinos.length ? 'Feito' : `${t.sessoes}/${t.alvo}`, 'Treino', d.treinos.length ? 'hoje' : 'na semana', anim) : ''}${D.temNascente ? (() => { const rp = ritualDia(d.k), f = (rp.m ? 1 : 0) + (rp.n ? 1 : 0); return anelMini(f / 2, COR.pele, `${f}/2`, 'Pele', `${rp.m ? '☀' : '·'} manhã ${rp.n ? '☾' : '·'} noite`.replace(/·/g, '○'), anim); })() : ''}</div>`;
   } else if (tab === 'semana'){
     const S = a.S;
-    resumo = `<dl class="vh-kpis"><div><dt>Comida</dt><dd>${S.nota.c.comida ?? '—'}</dd></div><div><dt>Treino</dt><dd>${S.nota.c.treino ?? '—'}</dd></div><div><dt>Peso</dt><dd>${S.nota.c.peso ?? '—'}</dd></div><div><dt>Semana anterior</dt><dd>${a.ant ?? '—'}</dd></div></dl>`;
+    resumo = kpisNota(S.nota.c, [['Semana anterior', a.ant ?? '—']]);
   } else {
-    resumo = `<dl class="vh-kpis"><div><dt>Comida</dt><dd>${a.comps.comida ?? '—'}</dd></div><div><dt>Treino</dt><dd>${a.comps.treino ?? '—'}</dd></div><div><dt>Peso</dt><dd>${a.comps.peso ?? '—'}</dd></div><div><dt>Dias</dt><dd>${a.M.nd}</dd></div></dl>`;
+    resumo = kpisNota(a.comps, [['Dias', a.M.nd]]);
   }
   // Comparação do mês com o anterior
   let extra = '';
@@ -551,9 +607,15 @@ async function pedirLeituraIA(an){
     mes: {mes: an.mes.P.nome, dias_decorridos: an.mes.M.nd, nota: an.mes.nota, componentes: an.mes.comps, kcal_media: Math.round(an.mes.M.kcalMed), proteina_media_g: Math.round(an.mes.M.protMed),
       dias_registados: an.mes.M.comp.length, treinos: an.mes.M.nSess, treinos_esperados: Math.round(an.mes.M.esp), recordes: an.mes.M.rec.map(r => r.nome), peso_variacao_kg: an.mes.M.delta != null ? +an.mes.M.delta.toFixed(1) : null,
       mes_anterior: {mes: an.mes.Pa.nome, kcal_media: Math.round(an.mes.Ma.kcalMed), proteina_media_g: Math.round(an.mes.Ma.protMed), treinos: an.mes.Ma.nSess, peso_variacao_kg: an.mes.Ma.delta != null ? +an.mes.Ma.delta.toFixed(1) : null}},
+    pele: D.temNascente ? (() => { const h0 = hojeN(), rp = ritualDia(chaveDe(h0)), Ps = pelePeriodo(segundaDe(h0), h0), Pm = pelePeriodo(an.mes.P.ini, h0), r = reinoPele(), fr = frascos();
+      const med = x => Object.fromEntries(Object.entries(x.medias).filter(([, v]) => v != null).map(([k, v]) => [k, +v.toFixed(1)]));
+      return {escala: '0 a 4; no estado geral, mais é melhor; nas outras medidas, menos é melhor', hoje: {manha_feita: rp.m, noite_feita: rp.n},
+        semana: {rituais_feitos: Ps.feitas, rituais_possiveis: Ps.possiveis, medias: med(Ps), registos: Ps.regs.length}, mes: {rituais_feitos: Pm.feitas, rituais_possiveis: Pm.possiveis, medias: med(Pm), sinais: Pm.sinais},
+        reino_de_cultivo: r.nome, dias_seguidos: sequenciaPele(), frascos_em_uso: fr.uso.map(p => p.nome), alertas_validade: fr.alertas.map(x => x.p.nome),
+        cruzamentos: cruzamentosPele().map(x => semTags(x.txt))}; })() : null,
     analise_automatica: {dia: resumoLista(an.dia), semana: resumoLista(an.semana), mes: resumoLista(an.mes)}
   };
-  const prompt = `És o vigia do Mirante: uma coruja sábia que acompanha a alimentação (registada na app Garfada) e os treinos de ginásio em casa (registados na app Forja) de uma pessoa, para a ajudar a chegar aos seus objetivos.
+  const prompt = `És o vigia do Mirante: uma coruja sábia que acompanha a alimentação (registada na app Garfada), os treinos de ginásio em casa (registados na app Forja) e os cuidados da pele (rituais de manhã e de noite e registos da pele, na app Nascente) de uma pessoa, para a ajudar a chegar aos seus objetivos.
 Escreve em português de Portugal (PT-PT), no tom direto e caloroso de um treinador experiente que conhece bem a pessoa. Sem emojis, sem termos em inglês, sem exageros.
 Analisa três períodos: hoje (o dia pode estar em curso; tem em conta a hora), esta semana e este mês. Para cada período, avalia o desempenho à luz dos objetivos e responde só com JSON neste formato:
 {"dia": {"veredicto": "uma frase curta e concreta que resume o período", "positivos": ["2 a 3 frases curtas, com números"], "negativos": ["2 a 3 frases curtas, com números"], "conselho": "uma ação concreta e específica para o próximo passo"}, "semana": {...igual...}, "mes": {...igual...}}

@@ -78,8 +78,59 @@ function gerarDemo(){
       treinos.push({id: 'demo-t' + k, inicio: ini.getTime(), fim: ini.getTime() + dur, tipo, nome, itens, atualizado: ini.getTime() + dur});
     }
   }
+  // Nascente: frascos, rituais de manhã e de noite e registos da pele.
+  // As borbulhas sobem a seguir a dias com mais açúcar, para se ver o cruzamento com a Garfada.
+  const kRel = n => { const d = new Date(hoje); d.setDate(d.getDate() + n); return kData(d); };
+  const acucar = {};
+  for (const r of refeicoes) acucar[r.data] = (acucar[r.data] || 0) + r.base.acucar * r.fator;
+  const prod = (id, nome, marca, tipo, ativos, quando, ini, extra) => Object.assign({id, nome, marca, tipo, ativos, quando, inicio: kRel(ini), aberto: kRel(ini), criado: Date.now() + ini * 864e5, atualizado: Date.now() + ini * 864e5}, extra || {});
+  const produtosN = [
+    prod('nas1', 'Gel de limpeza suave', 'CeraVe', 'limpeza', ['ceramidas'], 'ambos', -84),
+    prod('nas2', 'Sérum de vitamina C 15%', 'La Roche-Posay', 'serum', ['vitc', 'antioxidante'], 'manha', -160, {pao: 6}),
+    prod('nas3', 'Niacinamida 10% + Zinco', 'The Ordinary', 'serum', ['niacinamida', 'zinco'], 'ambos', -84),
+    prod('nas4', 'Hidratante com ceramidas', 'CeraVe', 'hidratante', ['ceramidas', 'hialuronico'], 'ambos', -84),
+    prod('nas5', 'Protetor solar SPF 50', 'Isdin', 'protetor', ['spf'], 'manha', -60),
+    prod('nas6', 'Retinol 0,2%', 'The Ordinary', 'tratamento', ['retinoide'], 'noite', -35, {pao: 6}),
+    prod('nas7', 'Esfoliante BHA 2%', "Paula's Choice", 'esfoliante', ['bha'], 'noite', -56),
+    prod('nas8', 'Contorno de olhos', 'Bioderma', 'olhos', ['peptidos'], 'ambos', -84, {fim: kRel(-10)}),
+    prod('nas9', 'Contorno de olhos com cafeína', 'The Inkey List', 'olhos', ['antioxidante'], 'ambos', -10)
+  ];
+  const usaEm = (k, quando) => produtosN.filter(p => p.inicio <= k && (!p.fim || p.fim > k) && (p.quando === 'ambos' || p.quando === quando));
+  const registosN = {}, peleN = [];
+  let geral = 1.7, bor = 2.6;
+  for (let i = DIAS; i >= 0; i--){
+    const d = new Date(hoje); d.setDate(d.getDate() - i);
+    const k = kData(d), fds = (d.getDay() + 6) % 7 >= 5, ehHoje = i === 0, hAgora = new Date().getHours(), r = {};
+    const fazM = rnd() < (fds ? .72 : .88) && !(ehHoje && hAgora < 9), fazN = rnd() < (fds ? .66 : .8) && !(ehHoje && hAgora < 23);
+    const passos = (q, completo) => { const ps = usaEm(k, q), o = {}, t = d.getTime() + (q === 'manha' ? 8 : 23) * 36e5; (completo ? ps : ps.slice(0, 2)).forEach((p, j) => o[p.id] = t + j * 6e4); return o; };
+    if (fazM){ r.m = passos('manha', true); r.mF = d.getTime() + 8.2 * 36e5; } else if (rnd() < .2 && !(ehHoje && hAgora < 9)) r.m = passos('manha', false);
+    if (fazN){ r.n = passos('noite', true); r.nF = d.getTime() + 23.2 * 36e5; } else if (rnd() < .2 && !(ehHoje && hAgora < 23)) r.n = passos('noite', false);
+    if (r.m || r.n){ r.ts = d.getTime() + 23.3 * 36e5; registosN[k] = r; }
+    // A pele: melhora devagar; o retinol traz secura e alguma irritação nas primeiras semanas.
+    geral = Math.min(3.6, geral + .018 + gauss() * .02);
+    bor = Math.max(.6, bor - .02 + gauss() * .03);
+    if (i % 3 === 0 || rnd() < .12){
+      const ac = [1, 2, 3].map(j => acucar[kRel(-i - j)] || 0).filter(Boolean), acM = ac.length ? ac.reduce((a, b) => a + b) / ac.length : 50;
+      const desdeRet = -35 + (DIAS - i) - DIAS, semRet = (DIAS - i) - (DIAS - 35);
+      const efeitoRet = semRet >= 0 && semRet < 18 ? 1 : 0;
+      const vB = Math.round(Math.max(0, Math.min(4, bor * .55 + (acM - 43) / 4.5 + gauss() * .2)));
+      const vS = Math.round(Math.max(0, Math.min(4, 1 + efeitoRet * 1.4 + gauss() * .4)));
+      const vI = Math.round(Math.max(0, Math.min(4, .4 + efeitoRet * 1.1 + gauss() * .35)));
+      const vO = Math.round(Math.max(0, Math.min(4, 2.2 - (DIAS - i) / 84 * .8 + gauss() * .4)));
+      const vG = Math.round(Math.max(0, Math.min(4, geral - vB * .25 - vI * .2 + gauss() * .3)));
+      const sinais = [];
+      if (vB >= 2) sinais.push('Borbulha nova'); if (vO >= 2) sinais.push('Zona T oleosa'); if (vS >= 2) sinais.push('Descamação'); if (vI >= 2) sinais.push('Ardor'); if (rnd() < .3) sinais.push('Pontos negros');
+      peleN.push({id: 'pel' + k, d: k, ts: d.getTime() + 22 * 36e5, geral: vG, oleo: vO, secura: vS, borbulhas: vB, irritacao: vI, sinais, nota: '',
+        mestre: i < 4 ? 'A pele está a habituar-se ao retinol: a secura desceu e as borbulhas estão mais raras. Mantém o retinol em noites alternadas e reforça o hidratante nessas noites.' : ''});
+      void desdeRet;
+    }
+  }
+  const nascente = {cfg: {nome: '', pele: 'mista', sensivel: false, preocupacoes: ['borbulhas', 'manchas'], horaNoite: 18, ts: 1}, produtos: produtosN, registos: registosN, pele: peleN, apagados: {},
+    revisao: null, avaliacao: {ts: Date.now() - 3 * 864e5, veredicto: 'A rotina está a funcionar: menos borbulhas e pele mais uniforme desde que o retinol entrou.', tendencias: ['Borbulhas a descer nas últimas 4 semanas.', 'Secura passageira no início do retinol, já a normalizar.'], ajustes: ['Mantém o protetor solar todas as manhãs: o retinol torna a pele mais sensível ao sol.'], dermatologista: false, porque: ''},
+    fotos: {}, existe: true};
   return {
     garfada: {refeicoes, cfg: cfgG, agua, aguaTs: {}, pesos: pesosG, apagados: {}, existe: true},
-    forja: {treinos, cfg: {nome: '', objetivo: 'hipertrofia', nivel: 2, dias: 4, duracao: 60, meta: 0, ts: 1}, apagados: {}, pesos: pesosF, pesosApag: {}, existe: true}
+    forja: {treinos, cfg: {nome: '', objetivo: 'hipertrofia', nivel: 2, dias: 4, duracao: 60, meta: 0, ts: 1}, apagados: {}, pesos: pesosF, pesosApag: {}, existe: true},
+    nascente
   };
 }

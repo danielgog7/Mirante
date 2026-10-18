@@ -118,13 +118,13 @@ function aviso(){
 }
 
 /* ---------- Vistas ---------- */
-const VISTAS = ['vInicio', 'vComida', 'vTreino', 'vPeso', 'vLigacoes'];
+const VISTAS = ['vInicio', 'vComida', 'vTreino', 'vPeso', 'vPele', 'vLigacoes'];
 function renderVista(){
   limparDicas(); GRAFS = {};
   for (const v of VISTAS){ const el = $('#' + v); el.hidden = v !== vista; if (v !== vista && el.innerHTML) el.innerHTML = ''; }
   $$('nav.barra .tab[data-v]').forEach(b => b.classList.toggle('ativo', b.dataset.v === vista));
   if (!DADOS){ if (vista === 'vLigacoes') renderLigacoes(); else $('#' + vista).innerHTML = '<div class="esqueleto"></div><div class="esqueleto" style="height:180px"></div>'; return; }
-  ({vInicio: renderInicio, vComida: renderComida, vTreino: renderTreino, vPeso: renderPeso, vLigacoes: renderLigacoes})[vista]();
+  ({vInicio: renderInicio, vComida: renderComida, vTreino: renderTreino, vPeso: renderPeso, vPele: renderPele, vLigacoes: renderLigacoes})[vista]();
   const el = $('#' + vista); el.classList.remove('entra', 'entra-esq', 'entra-dir');
   if (transicao){ void el.offsetWidth; el.classList.add(transicao); transicao = ''; }
 }
@@ -142,7 +142,8 @@ function irPara(v){ if (vista === v){ scrollTo({top: 0, behavior: 'smooth'}); re
 const EXPL = {
   comida: '<b>Comida</b><span>O score da Garfada: calorias perto da meta (40), proteína (20), registo completo (15), qualidade (15) e água (10).</span>',
   treino: '<b>Treino</b><span>Treinos feitos face ao objetivo semanal (50), grupos musculares trabalhados (25) e progressão das cargas (25).</span>',
-  peso: '<b>Peso</b><span>Ritmo da tendência face ao objetivo: perder 0,2 a 1% do peso por semana, manter, ou ganhar 0,1 a 0,5%.</span>'
+  peso: '<b>Peso</b><span>Ritmo da tendência face ao objetivo: perder 0,2 a 1% do peso por semana, manter, ou ganhar 0,1 a 0,5%.</span>',
+  pele: '<b>Pele</b><span>Rituais da Nascente feitos, de manhã e à noite (70), e o estado geral da pele nos registos (30).</span>'
 };
 const TEND = '<b>Tendência</b><span>Suaviza as oscilações do dia a dia (água, sal, hora da pesagem). É ela que mostra se estás mesmo a perder ou a ganhar.</span>';
 function subSemana(S){
@@ -252,7 +253,7 @@ function blocoFonte(app){
       : F.estado === 'a ler' ? linhaFonte('pend', `<b>GitHub:</b> ${onde}. A ler…`)
       : linhaFonte('pend', `<b>GitHub:</b> ${onde}${de}.${F.quando ? ' Última leitura às ' + hora(F.quando) + '.' : ''}`);
   }
-  const sug = app === 'garfada' ? 'garfada-dados' : 'forja-dados';
+  const sug = app + '-dados';
   return `<section class="painel"><h2>${nome}</h2><ul class="fonte-linhas">${local}${gh}</ul>
     <details class="mais"${own.token ? ' open' : ''}><summary>${own.token ? 'Ligação própria do Mirante' : 'Ligar a um repositório GitHub'}</summary>
       <div class="form" data-fonte="${app}">
@@ -267,7 +268,7 @@ function renderLigacoes(){
   const oc = origemChave(), mc = ML.get('cfg', {}) || {};
   $('#vLigacoes').innerHTML = `
   <div class="cab-vista"><h1>Ligações</h1><p class="sub">O Mirante só lê. Nunca altera nada na Garfada nem na Forja.</p></div>
-  ${blocoFonte('garfada')}${blocoFonte('forja')}
+  ${blocoFonte('garfada')}${blocoFonte('forja')}${blocoFonte('nascente')}
   <section class="painel"><h2>Leitura do vigia</h2>
     <ul class="fonte-linhas">${oc ? linhaFonte('ok', oc === 'mirante' ? '<b>Chave do Gemini:</b> a tua, guardada no Mirante.' : `<b>Chave do Gemini:</b> a mesma da ${NOME_APP[oc]}.`) : linhaFonte('', '<b>Chave do Gemini:</b> não encontrada neste dispositivo.')}</ul>
     <details class="mais"${mc.chave ? ' open' : ''}><summary>${mc.chave ? 'Chave própria do Mirante' : 'Usar outra chave'}</summary>
@@ -327,14 +328,15 @@ addEventListener('popstate', () => { const id = PILHA[PILHA.length - 1]; if (id)
 let RL = null;
 const FUNDOS = {
   abre: ['rgba(12,16,32,.5)', 'rgba(122,162,245,.22)'], nota: ['rgba(20,20,36,.62)', 'rgba(201,168,106,.22)'], comida: ['rgba(12,22,12,.68)', 'rgba(154,199,75,.24)'],
-  treino: ['rgba(30,16,10,.72)', 'rgba(238,106,34,.28)'], peso: ['rgba(10,18,40,.6)', 'rgba(122,162,245,.28)'], cruz: ['rgba(16,20,34,.7)', 'rgba(162,168,183,.14)'], fim: ['rgba(18,18,36,.58)', 'rgba(201,168,106,.2)']
+  treino: ['rgba(30,16,10,.72)', 'rgba(238,106,34,.28)'], peso: ['rgba(10,18,40,.6)', 'rgba(122,162,245,.28)'], cruz: ['rgba(16,20,34,.7)', 'rgba(162,168,183,.14)'], fim: ['rgba(18,18,36,.58)', 'rgba(201,168,106,.2)'],
+  pele: ['rgba(8,26,24,.66)', 'rgba(79,214,214,.24)']
 };
 function cartasRelato(S, A){
   const C = [], m = S.metas, n = S.nota, c = S.comida, t = S.treino, p = S.peso;
   const ola = `${D.nome ? esc(D.nome) + ', eis' : 'Eis'} como ${S.emCurso ? 'está a correr' : 'correu'} a tua semana.`;
   C.push({f: 'abre', html: `<p class="rl-sup">O relato da semana</p><h1>${rotSemana(S.ini)}</h1><div class="rl-hz" data-rl="hz"></div><p class="rl-txt">${ola}</p>`});
   if (n.total != null) C.push({f: 'nota', html: `<p class="rl-sup">A nota da semana${n.provisoria ? ', provisória' : ''}</p><div class="rl-big" data-conta="${n.total}">0</div><h2>${n.faixa}</h2>
-    <ul class="rl-linhas">${[['comida', 'Comida'], ['treino', 'Treino'], ['peso', 'Peso']].filter(([k]) => n.c[k] != null).map(([k, nome]) => `<li><span><i class="mk ${k}" style="margin-right:9px"></i>${nome}</span><b>${n.c[k]}${A.nota.c[k] != null ? `<small>antes ${A.nota.c[k]}</small>` : ''}</b></li>`).join('')}</ul>`});
+    <ul class="rl-linhas">${[['comida', 'Comida'], ['treino', 'Treino'], ['peso', 'Peso'], ['pele', 'Pele']].filter(([k]) => n.c[k] != null).map(([k, nome]) => `<li><span><i class="mk ${k}" style="margin-right:9px"></i>${nome}</span><b>${n.c[k]}${A.nota.c[k] != null ? `<small>antes ${A.nota.c[k]}</small>` : ''}</b></li>`).join('')}</ul>`});
   if (c.tem) C.push({f: 'comida', html: `<p class="rl-sup">Comida</p><div class="rl-big">${fmtInt(c.kcalMed)}<small>kcal</small></div>
     <p class="rl-txt">por dia, em média. A meta era <b>${fmtInt(m.kcal)}</b> e ficaste perto dela em <b>${c.naMeta} de ${c.diasReg}</b> ${c.diasReg === 1 ? 'dia' : 'dias'}.</p>
     <ul class="rl-linhas"><li>Proteína<b>${fmtInt(c.protMed)} g<small>meta ${m.prot} g</small></b></li><li>Dias registados<b>${c.diasReg}<small>de ${c.fechados}</small></b></li>${c.melhorDia ? `<li>Melhor dia<b>${DIAS_SEM[c.melhorDia.i]}</b></li>` : ''}${c.diasAgua ? `<li>Água<b>${fmt1(c.aguaMed / 1000)} L<small>meta ${fmt1(m.agua / 1000)} L</small></b></li>` : ''}</ul>`});
@@ -369,7 +371,13 @@ function cartasRelato(S, A){
       <p class="rl-txt">${p.delta != null ? `Na tendência, de <b>${fmt1(p.tIni)}</b> para <b>${fmt1(p.tFim)} kg</b>.` : `Tendência em <b>${fmt1(p.tFim)} kg</b>.`} ${p.ritmo != null ? `O ritmo atual é de <b>${sinal(p.ritmo, fmt1)} kg por semana</b>.` : ''}</p>
       ${p.semanasAteMeta && p.semanasAteMeta < 160 ? `<p class="rl-txt">Se continuares assim, chegas aos <b>${fmt1(p.objetivo)} kg</b> por volta de <b>${mesAno(Date.now() + p.semanasAteMeta * 7 * DIA)}</b>.</p>` : ''}
       ${caminhoPeso().vazio ? `<ul class="rl-linhas"><li>Pesagens<b>${p.pesagens.length}</b></li></ul>` : '<div class="rl-graf" data-rl="trilho"></div>'}`});
+  }  if (S.pele && S.pele.adesao != null){
+    const P = S.pele, r = reinoPele(), g = P.medias.geral, ga = A.pele && A.pele.medias.geral;
+    C.push({f: 'pele', html: `<p class="rl-sup">Pele</p><div class="rl-big">${P.feitas}<small>de ${P.possiveis}</small></div><p class="rl-txt">rituais da Nascente feitos${S.emCurso ? ' até agora' : ''}.</p>
+      ${htmlRituaisSemana(P)}
+      <ul class="rl-linhas"><li>Reino de cultivo<b>${esc(r.nome)}</b></li>${g != null ? `<li>Estado da pele<b>${PELE_MED_I.geral[2][Math.round(g)]}${ga != null ? `<small>antes ${PELE_MED_I.geral[2][Math.round(ga)].toLowerCase()}</small>` : ''}</b></li>` : ''}<li>Dias seguidos<b>${sequenciaPele()}</b></li></ul>`});
   }
+
   const L = leituras(S, A).slice(0, 3);
   if (L.length) C.push({f: 'cruz', html: `<p class="rl-sup">O que os números dizem juntos</p><h2>Comida, treino e peso, lado a lado</h2><ul class="leituras" style="margin-top:14px">${L.map(x => `<li><span class="glifo">${GLIFO[x.ic]}</span><p style="font-size:16px">${x.txt}</p></li>`).join('')}</ul>`});
   if (A.nota.total != null && !S.emCurso){
@@ -503,7 +511,8 @@ async function partilhar(){
 /* ---------- Ações ---------- */
 const semanaAtual = () => { const ini = segundaDe(hojeN()) + semOff * 7; return [semana(ini), semana(ini - 7)]; };
 const ACOES = {
-  irInicio(){ irPara('vInicio'); }, irComida(){ irPara('vComida'); }, irTreino(){ irPara('vTreino'); }, irPeso(){ irPara('vPeso'); }, irLigacoes(){ irPara('vLigacoes'); },
+  irInicio(){ irPara('vInicio'); }, irComida(){ irPara('vComida'); }, irTreino(){ irPara('vTreino'); }, irPeso(){ irPara('vPeso'); }, irPele(){ irPara('vPele'); },
+  peleMed(el){ peleMed = el.dataset.v; const y = scrollY; renderVista(); scrollTo({top: y}); }, irLigacoes(){ irPara('vLigacoes'); },
   ir(el){ irPara(el.dataset.v); },
   irForja(el){ ForjaCena.golpe(el.querySelector('.cena-forja'), () => irPara('vTreino')); },
   golpe(el){ ForjaCena.golpe(el); },

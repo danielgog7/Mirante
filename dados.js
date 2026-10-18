@@ -12,7 +12,8 @@ const LS = {
 // As chaves do Mirante têm prefixo próprio: nunca tocam nas da Garfada (sem prefixo) nem nas da Forja ("forja.").
 const ML = { get: (k, d) => LS.get('mirante.' + k, d), set: (k, v) => LS.set('mirante.' + k, v) };
 
-const NOME_APP = {garfada: 'Garfada', forja: 'Forja'};
+const NOME_APP = {garfada: 'Garfada', forja: 'Forja', nascente: 'Nascente'};
+const APPS = ['garfada', 'forja', 'nascente'];
 const ehObj = o => !!o && typeof o === 'object' && !Array.isArray(o);
 const ehData = k => /^\d{4}-\d{2}-\d{2}$/.test(k);
 const num = v => { const x = parseFloat(v); return isFinite(x) ? x : 0; };
@@ -69,6 +70,25 @@ function lerIDBGarfada(){
     };
   });
 }
+// Fotos dos frascos da Nascente (miniaturas), só se a base já existir.
+function lerFotosNascente(){
+  return new Promise(res => {
+    if (!('indexedDB' in window)) return res({});
+    let r, criou = false;
+    try { r = indexedDB.open('nascente'); } catch(e){ return res({}); }
+    r.onupgradeneeded = () => { criou = true; try { r.transaction.abort(); } catch(e){} };
+    r.onerror = () => res({}); r.onblocked = () => res({});
+    r.onsuccess = () => {
+      const db = r.result;
+      if (criou || !db.objectStoreNames.contains('fotos')){ db.close(); return res({}); }
+      try {
+        const st = db.transaction('fotos', 'readonly').objectStore('fotos'), out = {}, q = st.openCursor();
+        q.onsuccess = () => { const c = q.result; if (!c){ db.close(); return res(out); } if (typeof c.value === 'string' && !String(c.key).includes(':')) out[c.key] = c.value; c.continue(); };
+        q.onerror = () => { db.close(); res(out); };
+      } catch(e){ db.close(); res({}); }
+    };
+  });
+}
 const pareceCfgGarfada = c => ehObj(c) && ('atividade' in c || 'perfilOk' in c || 'usarTdee' in c) && ('sexo' in c || 'objetivo' in c);
 const parecePesosGarfada = p => ehObj(p) && Object.keys(p).every(ehData);
 
@@ -93,15 +113,23 @@ async function lerLocal(){
     pesosApag: LS.get('forja.pesosApag', {}) || {}
   };
   forja.existe = forja.treinos.length > 0 || ehObj(forja.cfg) || forja.pesos.length > 0;
-  return {garfada, forja};
+  const nP = LS.get('nascente.produtos', null), nR = LS.get('nascente.registos', null), nPe = LS.get('nascente.pele', null);
+  const nascente = {
+    cfg: ehObj(LS.get('nascente.cfg', null)) ? LS.get('nascente.cfg', null) : null,
+    produtos: Array.isArray(nP) ? nP : [], registos: ehObj(nR) ? nR : {}, pele: Array.isArray(nPe) ? nPe : [],
+    apagados: LS.get('nascente.apagados', {}) || {}, revisao: LS.get('nascente.revisao', null), avaliacao: LS.get('nascente.avaliacao', null)
+  };
+  nascente.existe = nascente.produtos.length > 0 || Object.keys(nascente.registos).length > 0 || nascente.pele.length > 0;
+  nascente.fotos = nascente.existe ? await lerFotosNascente() : {};
+  return {garfada, forja, nascente};
 }
 
 /* ---------- Credenciais (as das apps neste dispositivo, ou as que puseres no Mirante) ---------- */
 function credenciais(){
   const proprias = ML.get('fontes', {}) || {};
-  const das = {garfada: LS.get('gh', null), forja: LS.get('forja.gh', null)};
+  const das = {garfada: LS.get('gh', null), forja: LS.get('forja.gh', null), nascente: LS.get('nascente.gh', null)};
   const out = {};
-  for (const app of ['garfada', 'forja']){
+  for (const app of APPS){
     const p = proprias[app] || {}, a = ehObj(das[app]) ? das[app] : {};
     if (p.token && p.dono && p.repo) out[app] = {dono: p.dono, repo: p.repo, token: p.token, origem: 'mirante'};
     else if (a.token && a.dono && a.repo) out[app] = {dono: a.dono, repo: a.repo, token: a.token, origem: 'app'};
@@ -146,12 +174,14 @@ const RX = {
   mes: /^treinos\/(\d{4}-\d{2})\.json$/
 };
 function tipoRepo(itens){
+  if (itens.some(x => x.path === 'nascente.json')) return 'nascente';
   if (itens.some(x => RX.dia.test(x.path))) return 'garfada';
   if (itens.some(x => RX.mes.test(x.path))) return 'forja';
   return itens.length ? 'outro' : 'vazio';
 }
 // Só interessam os ficheiros de dados recentes (por omissão, 400 dias) e os de perfil e peso.
 function relevante(app, path, limite){
+  if (app === 'nascente') return path === 'nascente.json';
   if (path === 'perfil.json' || path === 'pesos.json') return true;
   if (app === 'garfada'){ const m = RX.dia.exec(path); return !!m && m[1] >= limite; }
   const m = RX.mes.exec(path); return !!m && m[1] >= limite.slice(0, 7);
@@ -275,17 +305,40 @@ function fundirPesos(g, f){
   return [...m.values()].sort((a, b) => a.d < b.d ? -1 : 1);
 }
 
-function montar(local, remG, remF, extra = {}){
+function fundirNascente(local, remoto){
+  const L = local || {}, apag = Object.assign({}, L.apagados || {});
+  let produtos = (L.produtos || []).slice(), pele = (L.pele || []).slice(), registos = Object.assign({}, L.registos || {});
+  let cfg = ehObj(L.cfg) ? Object.assign({}, L.cfg) : null, revisao = L.revisao || null, avaliacao = L.avaliacao || null;
+  const r = remoto && remoto.ficheiros.get('nascente.json');
+  if (ehObj(r) && r.app === 'nascente'){
+    for (const [id, ts] of Object.entries(r.apagados || {})) if (!apag[id] || apag[id] < ts) apag[id] = ts;
+    const porId = (loc, rem, campo) => { for (const x of rem || []){ if (!ehObj(x) || !x.id) continue; const i = loc.findIndex(o => o.id === x.id); if (i < 0) loc.push(x); else if ((x[campo] || 0) > (loc[i][campo] || 0)) loc[i] = x; } return loc; };
+    produtos = porId(produtos, r.produtos, 'atualizado'); pele = porId(pele, r.pele, 'ts');
+    for (const [k, v] of Object.entries(r.registos || {})) if (ehObj(v) && (!registos[k] || (v.ts || 0) > (registos[k].ts || 0))) registos[k] = v;
+    if (ehObj(r.cfg) && (r.cfg.ts || 0) > ((cfg && cfg.ts) || 0)) cfg = Object.assign({}, cfg || {}, r.cfg);
+    if (r.revisao && (!revisao || r.revisao.ts > revisao.ts)) revisao = r.revisao;
+    if (r.avaliacao && (!avaliacao || r.avaliacao.ts > avaliacao.ts)) avaliacao = r.avaliacao;
+  }
+  produtos = produtos.filter(o => ehObj(o) && !(apag[o.id] && apag[o.id] >= (o.atualizado || 0)));
+  pele = pele.filter(o => ehObj(o) && ehData(o.d || '') && !(apag[o.id] && apag[o.id] >= (o.ts || 0))).sort((a, b) => a.d < b.d ? -1 : 1);
+  for (const k of Object.keys(registos)) if (!ehData(k) || !ehObj(registos[k])) delete registos[k];
+  return {cfg, produtos, pele, registos, revisao, avaliacao, fotos: L.fotos || {}};
+}
+
+function montar(local, remG, remF, extra = {}, remN = null){
   const g = fundirGarfada(local.garfada, remG), f = fundirForja(local.forja, remF);
+  const nas = fundirNascente(local.nascente, remN);
   const gc = (local.garfada && local.garfada.cfg) || {}, fc = ehObj(local.forja && local.forja.cfg) ? local.forja.cfg : {}, mc = ML.get('cfg', {}) || {};
-  const chave = mc.chave || gc.chave || fc.chave || '';
-  const modelo = mc.chave ? (mc.modelo || 'gemini-flash-latest') : gc.chave ? (gc.modelo || 'gemini-flash-latest') : (fc.modelo || 'gemini-flash-latest');
+  const nc = (local.nascente && local.nascente.cfg) || {};
+  const chave = mc.chave || gc.chave || fc.chave || nc.chave || '';
+  const modelo = mc.chave ? (mc.modelo || 'gemini-flash-latest') : gc.chave ? (gc.modelo || 'gemini-flash-latest') : fc.chave ? (fc.modelo || 'gemini-flash-latest') : (nc.modelo || 'gemini-flash-latest');
   return Object.assign({
     refeicoes: g.refeicoes, agua: g.agua, gcfg: g.cfg, treinos: f.treinos, fcfg: f.cfg,
     pesos: fundirPesos(g.pesos, f.pesos),
     temGarfada: g.refeicoes.length > 0 || !!g.cfg || g.pesos.length > 0,
     temForja: f.treinos.length > 0 || !!f.cfg,
-    nome: (f.cfg && f.cfg.nome) || '',
+    nas, temNascente: nas.produtos.length > 0 || Object.keys(nas.registos).length > 0 || nas.pele.length > 0,
+    nome: (f.cfg && f.cfg.nome) || nas.cfg && nas.cfg.nome || '',
     ia: {chave, modelo},
     demo: false
   }, extra);
@@ -293,24 +346,29 @@ function montar(local, remG, remF, extra = {}){
 
 /* ---------- Carregamento ---------- */
 // Desenha logo com o que há no dispositivo e na cache; depois vai ao GitHub e volta a desenhar se houver novidades.
-const FONTES = {garfada: {}, forja: {}};
+const FONTES = {garfada: {}, forja: {}, nascente: {}};
+const ROT_LOCAL = {
+  garfada: L => L.refeicoes.length + ' refeições guardadas pela Garfada',
+  forja: L => L.treinos.length + ' treinos guardados pela Forja',
+  nascente: L => `${L.produtos.filter(p => !p.fim).length} frascos, ${Object.keys(L.registos).length} dias de ritual e ${L.pele.length} registos da pele`
+};
 async function carregarDados(aoAtualizar, {rede = true} = {}){
-  const local = await lerLocal(), creds = credenciais();
-  const cache = {garfada: await remotoDaCache('garfada', creds.garfada), forja: await remotoDaCache('forja', creds.forja)};
-  for (const app of ['garfada', 'forja']){
+  const local = await lerLocal(), creds = credenciais(), cache = {};
+  for (const app of APPS) cache[app] = await remotoDaCache(app, creds[app]);
+  for (const app of APPS){
     const L = local[app], c = creds[app];
     FONTES[app] = {
-      local: L.existe ? (app === 'garfada' ? {n: L.refeicoes.length, rotulo: L.refeicoes.length + ' refeições guardadas pela Garfada'} : {n: L.treinos.length, rotulo: L.treinos.length + ' treinos guardados pela Forja'}) : null,
+      local: L.existe ? {rotulo: ROT_LOCAL[app](L)} : null,
       cred: c ? {dono: c.dono, repo: c.repo, origem: c.origem} : null,
       estado: c ? (cache[app] ? 'cache' : 'espera') : 'off',
       quando: cache[app] ? cache[app].quando : 0, erro: ''
     };
   }
-  aoAtualizar(montar(local, cache.garfada, cache.forja), false);
+  aoAtualizar(montar(local, cache.garfada, cache.forja, {}, cache.nascente), false);
   if (!rede || !navigator.onLine) return;
-  const remoto = {garfada: cache.garfada, forja: cache.forja};
+  const remoto = Object.assign({}, cache);
   let novos = 0;
-  await Promise.all(['garfada', 'forja'].map(async app => {
+  await Promise.all(APPS.map(async app => {
     const c = creds[app]; if (!c) return;
     FONTES[app].estado = 'a ler';
     try {
@@ -319,5 +377,5 @@ async function carregarDados(aoAtualizar, {rede = true} = {}){
       Object.assign(FONTES[app], {estado: 'ok', quando: r.quando, erro: ''});
     } catch(e){ Object.assign(FONTES[app], {estado: 'erro', erro: e.message || 'Erro ao ler o GitHub.'}); }
   }));
-  aoAtualizar(montar(local, remoto.garfada, remoto.forja), true, novos);
+  aoAtualizar(montar(local, remoto.garfada, remoto.forja, {}, remoto.nascente), true, novos);
 }

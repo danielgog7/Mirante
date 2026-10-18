@@ -51,6 +51,8 @@ function renderInicio(){
     tiles.push(tile('ti-musc', 'vTreino', 'Músculos', 'treino', `<div class="tile-ilu">${svgCorpo(t.musc)}</div>
       <p class="tile-sub">${topMusc && topMusc[1] >= 1 ? `Mais trabalhado: <b>${(MUSC[topMusc[0]] || topMusc[0]).toLowerCase()}</b>, ${fmtInt(topMusc[1])} séries.` : 'Sem treinos nesta semana.'}</p>`));
   }
+  // Pele (Nascente)
+  if (D.temNascente) tiles.push(tilePele(S, anim));
   // Balança
   if (D.temGarfada){
     const d = B.dif == null ? null : Math.round(B.dif);
@@ -209,4 +211,63 @@ function renderPeso(){
   if (tend.length >= 2) GRAFS.pesoLinha = w => svgPeso(tend, w, 240, obj);
   GRAFS.balSem = w => svgDivergente(SS.map(X => { const B = balancaSemana(X); return {rot: dataCurta(X.ini), atual: X.emCurso, v: B.dif, dica: dicaSem(X, B.dif != null ? `<span><i class="mk ${B.dif < 0 ? 'peso' : 'nota'}"></i>${B.dif < 0 ? 'Défice' : 'Excedente'} de ${fmtInt(Math.abs(B.dif))} kcal por dia</span>` : '<span>Sem registo</span>')}; }), w, 200);
   desenhar($('#vPeso'));
+}
+
+/* ================= PELE (Nascente) ================= */
+let peleMed = 'geral';
+function tilePele(S, anim){
+  const rp = ritualDia(chaveDe(hojeN())), r = reinoPele(), seq = sequenciaPele(), P = S.pele;
+  return tile('ti-pele', 'vPele', 'Pele', 'pele', `<div class="tile-ilu nascente-mini">${svgNascente(rp)}</div>
+    <div class="pele-legenda"><div class="pl-rit">${astroMini('m', rp.m ? 'feito' : rp.mP ? 'parcial' : 'falhou')}<span>Manhã<b>${rp.m ? 'feito' : rp.mP ? 'a meio' : 'por fazer'}</b></span></div>
+      <div class="pl-rit">${astroMini('n', rp.n ? 'feito' : rp.nP ? 'parcial' : 'falhou')}<span>Noite<b>${rp.n ? 'feito' : rp.nP ? 'a meio' : 'por fazer'}</b></span></div></div>
+    <p class="tile-sub"><b>${esc(r.nome)}</b>${seq ? `, ${seq} ${seq === 1 ? 'dia' : 'dias'} seguidos` : ''}.${P && P.adesao != null ? ` Rituais da semana: ${P.feitas} de ${P.possiveis}.` : ''}</p>`);
+}
+function renderPele(){
+  const {S, A} = semanasAtuais(), anim = consumirAnim();
+  if (!D.temNascente){ $('#vPele').innerHTML = cabSemana(S) + vazioVista('Pele', 'Liga a Nascente para veres aqui os teus rituais, a evolução da pele e os frascos.', 'Ligar a Nascente'); return; }
+  const P = S.pele, Pa = A.pele, rp = ritualDia(chaveDe(hojeN())), r = reinoPele(), seq = sequenciaPele(), fr = frascos(), cruz = cruzamentosPele();
+  const SS = semanasRange(), ini = SS[0].ini, h = hojeN();
+  const ult = D.nas.pele[D.nas.pele.length - 1], av = D.nas.avaliacao;
+  const sin30 = pelePeriodo(h - 29, h).sinais, sinais = Object.entries(sin30).sort((a, b) => b[1] - a[1]).slice(0, 6), maxS = sinais.length ? sinais[0][1] : 1;
+  const desdeD = p => p.aberto ? Math.max(0, h - numDe(p.aberto)) : null;
+  const L = (() => { const K = coletor(); regrasPele(K, P, Pa, S.ini, Math.min(S.fim, h), S.emCurso && S.decorridos < 5, 'semana'); K.ordenar(); return K; })();
+  const fotoDe = p => D.nas.fotos[p.id] ? `<img src="${D.nas.fotos[p.id]}" alt="">` : `<span>${esc((TIPO_FRASCO[p.tipo] || p.nome || '?').charAt(0))}</span>`;
+  const estadoVal = v => !v ? '' : v.estado === 'expirado' ? '<i class="estado-lim nao">fora da validade</i>' : v.estado === 'expira' ? `<i class="estado-lim aviso">expira em ${v.dias} ${v.dias === 1 ? 'dia' : 'dias'}</i>` : '';
+  $('#vPele').innerHTML = `${cabSemana(S)}
+  <div class="area-grid">
+    <section class="painel largo pele-hero">
+      <div class="nascente-grande">${svgNascente(rp, {alto: true})}</div>
+      <div class="pele-reino">${glifoReinoP(r.i)}<div><span class="tile-cab">Reino de cultivo</span><h2>${esc(r.nome)}</h2><p class="sub">${esc(r.frase)}</p>
+        ${r.prox ? `<div class="barra-m"><div class="lin"><span>Até ${esc(r.prox)}</span><b>faltam ${r.falta} ${r.falta === 1 ? 'ritual' : 'rituais'}</b></div><div class="trilho"><i style="width:${Math.max(2, r.pct * 100)}%;background:${COR.pele}"></i></div></div>` : ''}</div></div>
+      <dl class="stats"><div><dt>Rituais feitos</dt><dd>${r.pts}</dd></div><div><dt>Dias seguidos</dt><dd>${seq}</dd></div><div><dt>Esta semana</dt><dd>${P.feitas} <small>de ${P.possiveis}</small></dd></div><div><dt>Frascos em uso</dt><dd>${fr.uso.length}</dd></div></dl></section>
+    <section class="painel"><h2>Rituais da semana</h2><p class="sub">O sol é o ritual da manhã; a lua, o da noite. Meio aceso: começaste mas não terminaste.</p>
+      ${htmlRituaisSemana(P)}
+      <p class="contexto">${P.adesao != null ? `<b>${fmtInt(P.adesao * 100)}%</b> dos rituais feitos${Pa && Pa.adesao != null ? `; na semana anterior, ${fmtInt(Pa.adesao * 100)}%` : ''}.` : 'A semana ainda não começou.'}</p></section>
+    <section class="painel"><h2>O que se destacou</h2>${L.pos.length + L.neg.length ? `<ul class="leituras">${[...L.pos.slice(0, 3).map(x => ['bom', x]), ...L.neg.slice(0, 3).map(x => ['mau', x])].map(([t, x]) => `<li class="${t}"><span class="glifo">${t === 'bom' ? `<svg viewBox="0 0 20 20" width="16" height="16"><path d="${estrela(10, 10, 8)}" fill="${COR.ouro}"/></svg>` : `<svg viewBox="0 0 20 20" width="16" height="16"><path d="M10 2.5L18.5 17H1.5Z" fill="none" stroke="#FF8A7A" stroke-width="1.8" stroke-linejoin="round"/></svg>`}</span><p>${x.txt}</p></li>`).join('')}</ul>` : '<p class="nota-vazia">Nada a destacar nesta semana.</p>'}</section>
+    <section class="painel largo"><div class="painel-topo"><h2>A tua pele ao longo do tempo</h2></div>
+      <div class="chips" role="group" aria-label="Medida">${PELE_MED.map(([k, n]) => `<button class="chip ${k === peleMed ? 'sel' : ''}" data-acao="peleMed" data-v="${k}" aria-pressed="${k === peleMed}">${n}</button>`).join('')}</div>
+      <div class="graf-caixa" data-graf="peleLinha" style="margin-top:12px"></div>
+      <div class="lev-legenda"><span><i class="mk pele"></i>Registos da Nascente</span><span><svg width="18" height="2" aria-hidden="true"><rect width="18" height="2" fill="${COR.pele}"/></svg>Média dos últimos 3</span><span><svg width="12" height="10" aria-hidden="true"><path d="M1 9L6 1L11 9Z" fill="${COR.ouro}"/></svg>Frasco que entrou na rotina</span></div>
+      ${chipsRange()}</section>
+    ${ult || av ? `<section class="painel"><h2>O Mestre da Nascente</h2>
+      ${ult ? `<p class="sub">Último registo, ${diaLongo(numDe(ult.d))}</p><div class="medidas-mini">${PELE_MED.map(([k, n, e]) => ult[k] != null ? `<div><span>${n}</span><b>${e[ult[k]]}</b></div>` : '').join('')}</div>
+        ${(ult.sinais || []).length ? `<p class="contexto">Sinais: ${esc(ult.sinais.join(', '))}.</p>` : ''}${ult.mestre ? `<blockquote class="mestre">${esc(ult.mestre)}</blockquote>` : ''}` : ''}
+      ${av && av.veredicto ? `<h3 class="sec-h">Avaliação da rotina, ${dataCurta(numTs(av.ts))}</h3><p class="mestre-v">${esc(av.veredicto)}</p>${(av.tendencias || []).length ? `<ul class="lista-simples">${av.tendencias.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}${(av.ajustes || []).length ? `<div class="vh-conselho" style="margin-top:12px"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 2.5a7 7 0 0 0-4 12.7V18h8v-2.8A7 7 0 0 0 12 2.5z" fill="none" stroke="${COR.ouro}" stroke-width="1.6"/></svg><p><b>Ajuste sugerido.</b> ${esc(av.ajustes[0])}</p></div>` : ''}${av.dermatologista ? `<div class="alerta-pele">O Mestre sugere falar com um dermatologista${av.porque ? ': ' + esc(av.porque) : '.'}</div>` : ''}` : ''}</section>` : ''}
+    <section class="painel"><h2>Sinais mais frequentes</h2><p class="sub">Nos últimos 30 dias de registos.</p>
+      ${sinais.length ? `<ul class="grupos">${sinais.map(([s2, n]) => `<li><span>${esc(s2)}</span><div class="gr-trilho"><i class="gr-valor" style="width:${n / maxS * 100}%;background:${COR.pele}"></i></div><b>${n}</b></li>`).join('')}</ul>` : '<p class="nota-vazia">Sem sinais registados.</p>'}</section>
+    ${cruz.length ? `<section class="painel largo"><h2>O que a comida diz da pele</h2><p class="sub">Cruzamento dos registos da Nascente com a Garfada. É uma pista, não uma prova: com mais registos fica mais fiável.</p>
+      <div class="cruzamentos">${cruz.map(x => { const mx = Math.max(x.a, x.b) || 1, f = v => x.dec ? fmt1(v) : fmtInt(v);
+        return `<div class="cruz${x.forte ? ' forte' : ''}"><h3>${x.titulo}</h3><div class="cz-barras"><div><span>${x.rotA}</span><div class="cz-t"><i style="width:${x.a / mx * 100}%;background:${x.forte ? '#FF8A7A' : COR.nevoa}"></i></div><b>${f(x.a)}</b></div>
+          <div><span>${x.rotB}</span><div class="cz-t"><i style="width:${x.b / mx * 100}%;background:${COR.pele}"></i></div><b>${f(x.b)}</b></div></div><p class="cz-un">${x.un}, com ${x.nA} e ${x.nB} registos</p><p class="contexto">${x.txt}</p></div>`; }).join('')}</div></section>` : ''}
+    <section class="painel largo"><div class="painel-topo"><h2>Frascos</h2><span class="sub">${fr.uso.length} em uso${fr.pausa.length ? `, ${fr.pausa.length} em pausa` : ''}</span></div>
+      <ul class="frascos">${fr.uso.concat(fr.pausa).map(p => { const v = validadeFrasco(p), dd = desdeD(p);
+        return `<li><span class="fr-foto">${fotoDe(p)}</span><div class="fr-t"><b>${esc(p.nome)}</b><span>${esc([p.marca, TIPO_FRASCO[p.tipo]].filter(Boolean).join(' · '))}${p.pausa ? ' · em pausa' : ''}</span>
+          <div class="fr-at">${(p.ativos || []).slice(0, 4).map(a2 => `<i>${esc(ATIVO_C[a2] || a2)}</i>`).join('')}</div></div><div class="fr-d">${dd != null ? `<small>aberto há ${dd} ${dd === 1 ? 'dia' : 'dias'}</small>` : ''}${estadoVal(v)}</div></li>`; }).join('')}</ul>
+      ${fr.acabados.length ? `<details class="mais"><summary>Acabados (${fr.acabados.length})</summary><ul class="frascos">${fr.acabados.slice(0, 12).map(p => `<li><span class="fr-foto">${fotoDe(p)}</span><div class="fr-t"><b>${esc(p.nome)}</b><span>Acabou a ${dataCurta(numDe(p.fim))}${p.recomprar === false ? ', não recomprar' : p.recomprar ? ', recomprar' : ''}</span></div></li>`).join('')}</ul></details>` : ''}</section>
+    <section class="painel largo evolucao"><div class="painel-topo"><h2>Constância ao longo do tempo</h2></div><p class="sub">Percentagem dos rituais feitos em cada semana.</p><div class="graf-caixa" data-graf="peleAdesao"></div></section>
+  </div>`;
+  GRAFS.peleLinha = w => svgPeleLinha(peleMed, ini, w);
+  GRAFS.peleAdesao = w => svgBarras(SS.map(X => ({rot: dataCurta(X.ini), atual: X.emCurso, v: X.pele && X.pele.adesao != null ? X.pele.adesao * 100 : 0,
+    dica: `<b>Semana de ${rotSemana(X.ini)}</b><span><i class="mk pele"></i>${X.pele ? `${X.pele.feitas} de ${X.pele.possiveis} rituais` : 'Sem dados'}</span>`})), w, 180, {cor: COR.pele, max: 100, meta: 85, rotMeta: 'boa constância', fmt: v => fmtInt(v) + '%', fmtEixo: v => v + '%', anim, titulo: 'Constância dos rituais por semana'});
+  desenhar($('#vPele'));
 }
