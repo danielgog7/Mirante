@@ -310,7 +310,7 @@ function renderCultivo(){
       ${cron ? `<h3 class="cron-titulo">${esc(cron.titulo)}</h3>${cron.texto.split(/\n+/).filter(Boolean).map(p => `<p class="cron-p">${esc(p)}</p>`).join('')}<p class="contexto">Escrita pela IA a ${dataCurta(numDe(chaveData(new Date(cron.ts))))}${cronMes === mesAtual ? ', com o mês ainda em curso' : ''}.</p>
         <div class="linha-bt"><button class="bt" data-acao="cronica" data-v="${cronMes}">Escrever de novo</button></div>`
       : `<p class="sub">O cronista da montanha escreve, em estilo wuxia, o que se passou em ${nomeMes(cronMes)}: os reinos que rompeste, onde fraquejaste e o conselho do mestre.${cronMes === mesAtual ? ' O mês ainda não acabou.' : ''}</p>
-        ${D.ia && D.ia.chave ? `<div class="linha-bt"><button class="bt pri" data-acao="cronica" data-v="${cronMes}">Escrever a crónica de ${MESES_PT[+cronMes.slice(5) - 1]}</button></div>` : '<div class="linha-bt"><button class="bt" data-acao="irLigacoes">Pôr a chave do Gemini</button></div>'}`}
+        ${iaLigada() ? `<div class="linha-bt"><button class="bt pri" data-acao="cronica" data-v="${cronMes}">Escrever a crónica de ${MESES_PT[+cronMes.slice(5) - 1]}</button></div>` : '<div class="linha-bt"><button class="bt" data-acao="irLigacoes">Pôr a chave do Gemini</button></div>'}`}
     </section>
   </div>`;
   GRAFS.mapaAsc = w => svgMapaAsc(c, w);
@@ -340,7 +340,7 @@ Escreve três parágrafos curtos (no total até 170 palavras): o que conquistou,
 Não inventes acontecimentos que não estão nos dados; podes usar metáforas. Sem emojis, sem termos em inglês, sem conselhos médicos.
 Responde só com JSON no formato {"titulo": "título curto e épico", "texto": "os três parágrafos separados por \\n\\n"}.
 Dados: ${JSON.stringify(R)}`;
-  const txt = await IA.pedir({texto: prompt, json: true, chave: D.ia.chave, modelo: D.ia.modelo, temperatura: .8});
+  const txt = await IA.pedir({texto: prompt, json: true, chave: chavePedido(), modelo: D.ia.modelo, temperatura: .8});
   const a = txt.indexOf('{'), b = txt.lastIndexOf('}'); let o;
   try { o = JSON.parse(txt.slice(a, b + 1)); } catch(e){ throw new Error('A IA respondeu num formato inválido. Tenta outra vez.'); }
   if (!o.texto) throw new Error('A IA não escreveu a crónica. Tenta outra vez.');

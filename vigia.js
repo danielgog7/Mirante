@@ -521,7 +521,7 @@ function renderVigiaHero(anim){
     : tab === 'semana' ? `<div class="lev-legenda"><span><i class="mk nota"></i>Nota de cada dia</span><span><svg width="18" height="2" aria-hidden="true"><rect width="18" height="2" fill="${COR.nevoa}" opacity=".6"/></svg>Semana anterior</span><span><i class="mk treino"></i>Treino</span></div>`
     : `<div class="lev-legenda"><span><i class="q" style="background:${RAMPA[0]}"></i>Sem registo</span><span><i class="q" style="background:${RAMPA[1]}"></i>Abaixo de 55</span><span><i class="q" style="background:${RAMPA[2]}"></i>55 a 69</span><span><i class="q" style="background:${RAMPA[3]}"></i>70 a 84</span><span><i class="q" style="background:${RAMPA[4]}"></i>85 ou mais</span><span><i class="mk treino"></i>Treino</span></div>`;
   const tituloGraf = tab === 'dia' ? 'O teu dia, hora a hora' : tab === 'semana' ? 'A semana, dia a dia' : `${cap(a.P.nome)}, dia a dia`;
-  const estadoIA = !D.ia.chave ? `<button class="bt vh-bt" data-acao="irLigacoes">Ligar a IA para comentários escritos</button>`
+  const estadoIA = !iaLigada() ? `<button class="bt vh-bt" data-acao="irLigacoes">Ligar a IA para comentários escritos</button>`
     : vigiaPensa ? '<span>O vigia está a pensar…</span>'
     : ia ? `<span>${usaIA ? 'Comentários escritos pela IA' : 'Análise automática'}, às ${hora(ia.ts)}.</span>${ia.ass !== assinaturaTotal(an) ? '<button class="bt vh-bt" data-acao="vigiaIA">Atualizar a leitura</button>' : ''}`
     : '<button class="bt vh-bt" data-acao="vigiaIA">Pedir a leitura da IA</button>';
@@ -558,7 +558,7 @@ function renderVigiaHero(anim){
   falar(el.querySelector('.vh-veredicto'), veredicto, anim);
   const c = el.querySelector('.coruja'); if (c && vigiaPensa) c.classList.add('pensa');
   // Leitura da IA automática, uma vez por dia
-  if (D.ia.chave && !D.demo && !vigiaIAPedida && !iaHoje()){ vigiaIAPedida = true; pedirLeituraIA(an); }
+  if (iaLigada() && !D.demo && !vigiaIAPedida && !iaHoje()){ vigiaIAPedida = true; pedirLeituraIA(an); }
 }
 
 /* ---------- A coruja fala, olha e reage ---------- */
@@ -590,7 +590,7 @@ setInterval(() => {
 
 /* ---------- A leitura da IA: os três períodos de uma vez ---------- */
 async function pedirLeituraIA(an){
-  if (!D.ia.chave) return;
+  if (!iaLigada()) return;
   an = an || vigiaAnalises();
   vigiaPensa = true;
   $$('#vigiaHero .coruja').forEach(c => c.classList.add('pensa'));
@@ -622,7 +622,7 @@ Analisa três períodos: hoje (o dia pode estar em curso; tem em conta a hora), 
 Regras: usa os números dos dados; cruza comida, treino e peso quando fizer sentido (por exemplo, proteína nos dias de treino, calorias e ritmo do peso); não inventes dados; se não houver negativos reais, diz o que pode ficar ainda melhor; não dês conselhos médicos. A análise automática serve de base, mas melhora-a e escreve-a à tua maneira.
 Dados: ${JSON.stringify(dados)}`;
   try {
-    const txt = await IA.pedir({texto: prompt, json: true, chave: D.ia.chave, modelo: D.ia.modelo, temperatura: .5});
+    const txt = await IA.pedir({texto: prompt, json: true, chave: chavePedido(), modelo: D.ia.modelo, temperatura: .5});
     const a = txt.indexOf('{'), b = txt.lastIndexOf('}'); const o2 = JSON.parse(txt.slice(a, b + 1));
     const limpa = x => x && typeof x === 'object' ? {veredicto: String(x.veredicto || '').slice(0, 320), positivos: (x.positivos || []).slice(0, 4).map(y => String(y).slice(0, 280)), negativos: (x.negativos || []).slice(0, 4).map(y => String(y).slice(0, 280)), conselho: String(x.conselho || '').slice(0, 320)} : null;
     const res = {dia: limpa(o2.dia), semana: limpa(o2.semana), mes: limpa(o2.mes)};

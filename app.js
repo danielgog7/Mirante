@@ -213,7 +213,7 @@ function blocoVigia(S, A){
   const g = vigiaGuardado(S);
   const coruja = `<span data-acao="coruja" role="button" tabindex="0" aria-label="O vigia">${svgCoruja()}</span>`;
   const cab = intro => `<div class="vigia-cab">${coruja}<div><h3>Leitura do vigia</h3>${intro}</div></div>`;
-  if (!D.ia.chave) return `<div class="vigia">${cab('<p class="sub" style="margin-top:4px">A IA lê os números da semana e diz-te o que mais importa. Usa a chave do Gemini da Garfada ou da Forja.</p>')}<button class="bt" data-acao="irLigacoes">Configurar a IA</button></div>`;
+  if (!iaLigada()) return `<div class="vigia">${cab('<p class="sub" style="margin-top:4px">A IA lê os números da semana e diz-te o que mais importa. Usa a chave do Gemini de qualquer das tuas apps, ou o Groq de reserva.</p>')}<button class="bt" data-acao="irLigacoes">Configurar a IA</button></div>`;
   if (g) return `<div class="vigia">${cab(`<p class="veredicto">${esc(g.r.veredicto)}</p>`)}${(g.r.destaques || []).length ? `<ul>${g.r.destaques.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}${g.ass !== assinaturaIA(S, A) ? '<button class="bt" data-acao="vigia">Atualizar a leitura</button>' : ''}</div>`;
   return `<div class="vigia">${cab('<p class="sub" style="margin-top:4px">A IA lê os números da semana e diz-te o que mais importa.</p>')}<button class="bt" data-acao="vigia">Pedir a leitura</button></div>`;
 }
@@ -223,7 +223,7 @@ Escreve em português de Portugal (PT-PT), com tom direto e caloroso de treinado
 Analisa a semana com base nestes dados e responde só com JSON no formato {"veredicto": "uma frase curta que resume a semana", "destaques": ["2 a 3 frases curtas, com números concretos, sobre o que correu bem e o que correu pior, cruzando comida, treino e peso quando fizer sentido"], "focos": ["exatamente 3 ações concretas e específicas para a próxima semana"]}.
 Regras: não inventes dados que não estão aqui; se a semana estiver em curso, fala do que já aconteceu; não dês conselhos médicos.
 Dados: ${JSON.stringify(resumoParaIA(S, A))}`;
-  const txt = await IA.pedir({texto: prompt, json: true, chave: D.ia.chave, modelo: D.ia.modelo, temperatura: .4});
+  const txt = await IA.pedir({texto: prompt, json: true, chave: chavePedido(), modelo: D.ia.modelo, temperatura: .4});
   const a = txt.indexOf('{'), b = txt.lastIndexOf('}');
   let o; try { o = JSON.parse(txt.slice(a, b + 1)); } catch(e){ throw new Error('A IA respondeu num formato inválido. Tenta outra vez.'); }
   const res = {veredicto: String(o.veredicto || '').slice(0, 300), destaques: (o.destaques || []).slice(0, 3).map(x => String(x).slice(0, 300)), focos: (o.focos || []).slice(0, 3).map(x => String(x).slice(0, 300))};
@@ -238,9 +238,23 @@ Dados: ${JSON.stringify(resumoParaIA(S, A))}`;
 const RANGES = [[8, '8 semanas'], [12, '3 meses'], [26, '6 meses'], [52, '1 ano']];
 
 /* ---------- Ligações ---------- */
+// De onde vem a chave: 'mirante' (própria), o nome da app que a emprestou, 'groq' (só a reserva) ou '' (nenhuma).
 function origemChave(){
-  const mc = ML.get('cfg', {}) || {}, gc = LS.get('cfg', {}) || {}, fc = LS.get('forja.cfg', {}) || {};
-  return mc.chave ? 'mirante' : (pareceCfgGarfada(gc) && gc.chave) ? 'garfada' : (fc && fc.chave) ? 'forja' : '';
+  const mc = ML.get('cfg', {}) || {};
+  if (mc.chave) return 'mirante';
+  if (typeof IA !== 'undefined' && IA.chaveGemini){
+    if (IA.chaveGemini('')) return (IA.origemChave && IA.origemChave('')) || 'outra app tua';
+    return iaLigada() ? 'groq' : '';
+  }
+  // ia-comum.js antigo: procura à mão nas apps deste aparelho
+  const gc = LS.get('cfg', {}) || {}, fc = LS.get('forja.cfg', {}) || {}, nc = LS.get('nascente.cfg', {}) || {};
+  return (pareceCfgGarfada(gc) && gc.chave) ? 'Garfada' : (fc && fc.chave) ? 'Forja' : (nc && nc.chave) ? 'Nascente' : '';
+}
+function textoOrigemChave(oc){
+  if (oc === 'mirante') return linhaFonte('ok', '<b>Chave do Gemini:</b> a tua, guardada no Mirante.');
+  if (oc === 'groq') return linhaFonte('ok', '<b>Chave do Gemini:</b> nenhuma neste dispositivo. A leitura usa o Groq de reserva.');
+  if (oc) return linhaFonte('ok', `<b>Chave do Gemini:</b> ${oc === 'outra app tua' ? 'a de outra app tua' : 'a mesma da ' + esc(oc)}, neste dispositivo.`);
+  return linhaFonte('', '<b>Chave do Gemini:</b> não encontrada neste dispositivo.');
 }
 function linhaFonte(cls, html){ return `<li><i class="ponto ${cls}"></i><span>${html}</span></li>`; }
 function blocoFonte(app){
@@ -296,7 +310,7 @@ function renderLigacoes(){
   <div class="cab-vista"><h1>Ligações</h1><p class="sub">O Mirante só lê. Nunca altera nada na Garfada, na Forja nem na Nascente.</p></div>
   ${blocoMirante()}${blocoFonte('garfada')}${blocoFonte('forja')}${blocoFonte('nascente')}
   <section class="painel"><h2>Leitura do vigia</h2>
-    <ul class="fonte-linhas">${oc ? linhaFonte('ok', oc === 'mirante' ? '<b>Chave do Gemini:</b> a tua, guardada no Mirante.' : `<b>Chave do Gemini:</b> a mesma da ${NOME_APP[oc]}.`) : linhaFonte('', '<b>Chave do Gemini:</b> não encontrada neste dispositivo.')}</ul>
+    <ul class="fonte-linhas">${textoOrigemChave(oc)}</ul>
     <details class="mais"${mc.chave ? ' open' : ''}><summary>${mc.chave ? 'Chave própria do Mirante' : 'Usar outra chave'}</summary>
       <div class="form"><p class="sub">Cria uma chave gratuita em <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com</a>. Fica guardada só neste dispositivo.</p>
         <label class="campo">Chave do Gemini<input id="chaveIA" type="password" value="${esc(mc.chave || '')}" autocomplete="off" spellcheck="false"></label>
@@ -415,7 +429,7 @@ function cartasRelato(S, A){
     if (lin.length >= 2) C.push({f: 'cruz', html: `<p class="rl-sup">Face à semana anterior</p><h2>O que mudou</h2><ul class="rl-linhas">${lin.map(([nm, a, b, f]) => `<li>${nm}<b>${f(b)}<small>antes ${f(a)}</small></b></li>`).join('')}</ul>`});
   }
   const g = vigiaGuardado(S);
-  if (D.ia.chave && n.total != null) C.push({f: 'nota', vigia: true, html: `<div class="rl-coruja">${svgCoruja()}</div><p class="rl-sup">Leitura do vigia</p>${g ? `<h2 class="veredicto" style="font-style:italic">${esc(g.r.veredicto)}</h2><ul class="rl-linhas">${(g.r.destaques || []).map(x => `<li style="display:block;line-height:1.5">${esc(x)}</li>`).join('')}</ul>`
+  if (iaLigada() && n.total != null) C.push({f: 'nota', vigia: true, html: `<div class="rl-coruja">${svgCoruja()}</div><p class="rl-sup">Leitura do vigia</p>${g ? `<h2 class="veredicto" style="font-style:italic">${esc(g.r.veredicto)}</h2><ul class="rl-linhas">${(g.r.destaques || []).map(x => `<li style="display:block;line-height:1.5">${esc(x)}</li>`).join('')}</ul>`
     : `<h2>A IA lê a tua semana</h2><p class="rl-txt">Junta os números da comida, do treino e do peso e diz-te o que mais importa.</p><div class="rl-acoes"><button class="bt pri" data-acao="vigiaRelato">Pedir a leitura</button></div>`}`});
   const F = g && g.r.focos && g.r.focos.length ? g.r.focos : focos(S).map(x => x[1]);
   C.push({f: 'fim', html: `<p class="rl-sup">Para a próxima semana</p><h2>Três focos</h2><ol class="rl-focos">${F.map(x => `<li><span>${esc(x)}</span></li>`).join('')}</ol>

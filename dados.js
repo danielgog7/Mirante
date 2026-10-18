@@ -435,12 +435,20 @@ function fundirNascente(local, remoto){
   return {cfg, produtos, pele, registos, respiracao, revisao, avaliacao, fotos: L.fotos || {}};
 }
 
+// A chave guardada no próprio Mirante (pode estar vazia: o IA.pedir vai buscar a de outra app ou usa o Groq).
+const chaveMirante = () => ((ML.get('cfg', {}) || {}).chave || '');
+// Há IA: chave do Gemini (do Mirante ou de outra app) ou chave do Groq.
+// A chave a passar ao IA.pedir: a do Mirante, mesmo vazia (o ia-comum.js 2026-10-18b procura sozinho a de outra app ou passa ao Groq).
+// Com um ia-comum.js mais antigo, que não sabe procurar, passa a chave já encontrada.
+const chavePedido = () => typeof IA !== 'undefined' && IA.chaveGemini ? chaveMirante() : ((D && D.ia && D.ia.chave) || '');
+const iaLigada = () => typeof IA !== 'undefined' && IA.temIA ? !!IA.temIA(chaveMirante()) : !!(D && D.ia && D.ia.chave);
 function montar(local, remG, remF, extra = {}, remN = null){
   const g = fundirGarfada(local.garfada, remG), f = fundirForja(local.forja, remF);
   const nas = fundirNascente(local.nascente, remN);
   const gc = (local.garfada && local.garfada.cfg) || {}, fc = ehObj(local.forja && local.forja.cfg) ? local.forja.cfg : {}, mc = ML.get('cfg', {}) || {};
   const nc = (local.nascente && local.nascente.cfg) || {};
-  const chave = mc.chave || gc.chave || fc.chave || nc.chave || '';
+  // A chave do Gemini: a do Mirante; senão a de outra app deste aparelho (o ia-comum.js procura-a e lembra-se da última que funcionou).
+  const chave = typeof IA !== 'undefined' && IA.chaveGemini ? (IA.chaveGemini(mc.chave || '') || '') : (mc.chave || gc.chave || fc.chave || nc.chave || '');
   const modelo = mc.chave ? (mc.modelo || 'gemini-flash-latest') : gc.chave ? (gc.modelo || 'gemini-flash-latest') : fc.chave ? (fc.modelo || 'gemini-flash-latest') : (nc.modelo || 'gemini-flash-latest');
   return Object.assign({
     refeicoes: g.refeicoes, agua: g.agua, aguaCha: g.aguaCha || {}, gcfg: g.cfg, treinos: f.treinos, fcfg: f.cfg,
