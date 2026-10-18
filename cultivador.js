@@ -19,11 +19,67 @@ function dantiansM(id, r, tes, desvio, mini){
   return `<defs>${defs}</defs>${g}`;
 }
 
+/* ---------- Os objetos de cada app ---------- */
+const ESPADA_COR = [['#6f757c', '#aab0b6', '#5d636a', 0], ['#cfd8dc', '#ffffff', '#9fb0b6', .15], ['#e8f4ff', '#ffffff', '#b8d6f0', .4], ['#ffb46b', '#fff3d6', '#ff7a2a', .65], ['#ffd27a', '#ffffff', '#ff5a1f', .95]];
+function objetosM(obj, id, mini){
+  if (!obj) return {tras: '', frente: ''};
+  let tras = '', frente = '';
+  if (obj.espada && obj.espada.ativo){
+    const n = obj.espada.nivel, [c1, c2, c3, gl] = ESPADA_COR[n];
+    tras = `<g class="c-espada e${n}"><g transform="translate(222 132) rotate(28)">
+      <defs><linearGradient id="${id}gEsp" x1="0" x2="1"><stop offset="0" stop-color="${c1}"/><stop offset=".5" stop-color="${c2}"/><stop offset="1" stop-color="${c3}"/></linearGradient>
+        <radialGradient id="${id}gEspB"><stop offset="0" stop-color="${n >= 3 ? '#ff9a3c' : '#dff1ff'}" stop-opacity=".9"/><stop offset="1" stop-color="${n >= 3 ? '#ff5a1f' : '#9fd0ff'}" stop-opacity="0"/></radialGradient></defs>
+      ${gl ? `<ellipse class="esp-brilho" cx="0" cy="-18" rx="${10 + n * 4}" ry="${52 + n * 6}" fill="url(#${id}gEspB)" opacity="${gl}"/>` : ''}
+      <rect x="-3" y="-62" width="6" height="88" rx="1.5" fill="url(#${id}gEsp)"/><path d="M-3 -62 L0 -74 L3 -62Z" fill="${c2}"/>
+      ${n >= 2 ? `<path d="M0 -70 L0 24" stroke="#fff" stroke-width=".8" opacity=".8"/>` : ''}
+      <rect x="-12" y="26" width="24" height="5" rx="2" fill="#c9a86a"/><rect x="-2.5" y="31" width="5" height="18" rx="2" fill="#5a3b26"/><circle cy="52" r="3.5" fill="#c9a86a"/>
+      ${n >= 4 && !mini ? `<g class="esp-faiscas" fill="#ffd27a"><circle cx="-8" cy="-40" r="1.6"/><circle cx="9" cy="-12" r="1.3"/><circle cx="-6" cy="8" r="1.1"/><circle cx="7" cy="-55" r="1.2"/></g>` : ''}</g></g>`;
+  }
+  if (obj.cabaca && obj.cabaca.ativo){
+    const fr = clamp(obj.cabaca.frac, 0, 1), topo = 268 - fr * 40;
+    frente += `<g class="c-cabaca"><defs><clipPath id="${id}cCab"><path d="M108 228 C102 228 101 236 104 240 C96 244 94 256 98 262 C102 270 114 270 118 262 C122 256 120 244 112 240 C115 236 114 228 108 228Z"/></clipPath>
+        <linearGradient id="${id}gCab" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d8f59a"/><stop offset="1" stop-color="#6f9a2c"/></linearGradient></defs>
+      <path d="M108 222 L108 229" stroke="#c9a86a" stroke-width="1.3"/>
+      <path d="M108 228 C102 228 101 236 104 240 C96 244 94 256 98 262 C102 270 114 270 118 262 C122 256 120 244 112 240 C115 236 114 228 108 228Z" fill="#3b2a1c" stroke="#c9a86a" stroke-width="1.2"/>
+      <rect clip-path="url(#${id}cCab)" x="92" y="${topo.toFixed(1)}" width="32" height="${(272 - topo).toFixed(1)}" fill="url(#${id}gCab)" opacity=".95"/>
+      ${fr >= .5 ? `<ellipse cx="108" cy="${(topo + 1).toFixed(1)}" rx="9" ry="1.6" fill="#f2ffd0" opacity=".7"/>` : ''}
+      <path d="M103 237 L113 237" stroke="#c9a86a" stroke-width="1.6"/></g>`;
+  }
+  if (obj.jade && obj.jade.ativo){
+    const n = obj.jade.nivel, cor = ['#5f7f74', '#7fd1b4', '#9ff0d0', '#c6fff0', '#ffffff'][n];
+    frente += `<g class="c-jade j${n}"><path d="M192 224 L192 242" stroke="#c9a86a" stroke-width="1.2"/>
+      ${n ? `<circle cx="192" cy="250" r="${12 + n * 3}" fill="${cor}" opacity="${(.12 + n * .07).toFixed(2)}"/>` : ''}
+      <circle cx="192" cy="250" r="8.5" fill="${cor}" fill-opacity="${(.55 + n * .1).toFixed(2)}" stroke="#eafff6" stroke-opacity="${(.4 + n * .12).toFixed(2)}"/><circle cx="192" cy="250" r="2.8" fill="#0b1c18"/>
+      <path d="M187 262 L192 270 L197 262" stroke="#c9a86a" stroke-width="1" fill="none"/></g>`;
+  }
+  return {tras, frente};
+}
+
+/* ---------- O céu verdadeiro: a fase da lua de hoje e a hora a que abres ---------- */
+// Caminho da parte iluminada da lua (f: 0 lua nova, 0,5 cheia).
+function caminhoLua(cx, cy, r, f){
+  const crescente = f < .5, k = Math.cos(2 * Math.PI * f), rx = Math.abs(k) * r;
+  const sT = crescente ? (k > 0 ? 0 : 1) : (k > 0 ? 1 : 0);
+  return `M${cx} ${cy - r} A${r} ${r} 0 0 ${crescente ? 1 : 0} ${cx} ${cy + r} A${rx.toFixed(2)} ${r} 0 0 ${sT} ${cx} ${cy - r}Z`;
+}
+function horaDoCeu(d = new Date()){ const h = d.getHours() + d.getMinutes() / 60; return h >= 5.5 && h < 8.5 ? 'aurora' : h >= 8.5 && h < 17.5 ? 'dia' : h >= 17.5 && h < 20.5 ? 'ocaso' : 'noite'; }
+const HORA_TINTA = {
+  aurora: `<linearGradient id="phora" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b4f8f" stop-opacity=".15"/><stop offset=".6" stop-color="#ff9f7a" stop-opacity=".18"/><stop offset=".78" stop-color="#ffc08a" stop-opacity=".42"/><stop offset="1" stop-color="#ff9f7a" stop-opacity="0"/></linearGradient>`,
+  dia: `<linearGradient id="phora" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fa8ff" stop-opacity=".22"/><stop offset=".75" stop-color="#bcd4ff" stop-opacity=".26"/><stop offset="1" stop-color="#bcd4ff" stop-opacity="0"/></linearGradient>`,
+  ocaso: `<linearGradient id="phora" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5a2a6a" stop-opacity=".2"/><stop offset=".65" stop-color="#ff7a3c" stop-opacity=".22"/><stop offset=".78" stop-color="#ff9a4c" stop-opacity=".45"/><stop offset="1" stop-color="#ff7a3c" stop-opacity="0"/></linearGradient>`,
+  noite: ''
+};
+function luaPequena(L){
+  const p = caminhoLua(318, 150, 15, L.f);
+  return `<g class="lua-real"><circle cx="318" cy="150" r="${(40 + L.ilum * 30).toFixed(0)}" fill="#f3ead2" opacity="${(.025 + L.ilum * .06).toFixed(2)}"/>
+    <circle cx="318" cy="150" r="15" fill="#2b3150" opacity=".55"/><path d="${p}" fill="#f6efd8"/></g>`;
+}
+
 /* ---------- Palcos (o cenário de cada reino) ---------- */
 // Fundo em SVG 400 x 800 (como a capa da Nascente), a base onde ele se senta e os efeitos do canvas.
 const SERRA_LONGE = 'M0 600 L40 572 L78 584 L120 540 L160 566 L196 528 L236 560 L276 534 L318 570 L356 546 L400 568 V800 H0Z';
 const SERRA_PERTO = 'M0 650 L36 628 L70 640 L112 606 L150 632 L190 618 L232 642 L270 620 L312 646 L356 624 L400 640 V800 H0Z';
-function palcoM(r){
+function palcoM(r, L = faseLua(hojeN()), hora = horaDoCeu()){
   const p = Math.min(r, 3);
   const fundo = [
     // 0 · Mortal Desperto: o cume ao anoitecer
@@ -47,8 +103,8 @@ function palcoM(r){
       <radialGradient id="pg3"><stop offset=".55" stop-color="#f3ead2" stop-opacity=".35"/><stop offset="1" stop-color="#f3ead2" stop-opacity="0"/></radialGradient>
       <filter id="pf3" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="7"/></filter></defs>
      <rect width="400" height="800" fill="url(#pc3)"/><circle cx="200" cy="330" r="250" fill="url(#pg3)"/>
-     <g class="lua-grande"><circle cx="200" cy="330" r="150" fill="url(#pl3)"/>
-       <g fill="#8d846d" opacity=".22"><circle cx="150" cy="280" r="26"/><circle cx="240" cy="250" r="14"/><circle cx="262" cy="350" r="34"/><circle cx="170" cy="390" r="18"/><circle cx="215" cy="420" r="10"/><circle cx="120" cy="340" r="9"/></g></g>
+     <g class="lua-grande"><circle cx="200" cy="330" r="150" fill="#3a4266" opacity=".75"/><clipPath id="pk3"><path d="${caminhoLua(200, 330, 150, L.f)}"/></clipPath><path d="${caminhoLua(200, 330, 150, L.f)}" fill="url(#pl3)"/>
+       <g fill="#8d846d" opacity=".22" clip-path="url(#pk3)"><circle cx="150" cy="280" r="26"/><circle cx="240" cy="250" r="14"/><circle cx="262" cy="350" r="34"/><circle cx="170" cy="390" r="18"/><circle cx="215" cy="420" r="10"/><circle cx="120" cy="340" r="9"/></g></g>
      <g class="nuvens n1" filter="url(#pf3)"><path d="M-60 640 C0 600 60 610 110 628 C160 596 230 600 270 626 C320 598 400 606 460 630 V800 H-60Z" fill="#2c3a66" opacity=".9"/></g>
      <g class="nuvens n2" filter="url(#pf3)"><path d="M-60 690 C10 652 80 664 140 682 C200 650 270 660 320 684 C370 660 430 668 460 690 V800 H-60Z" fill="#3a4a7a"/></g>
      <g class="nuvens n3" filter="url(#pf3)"><path d="M-60 740 C20 710 90 718 160 736 C220 708 300 716 350 738 C400 716 440 722 460 740 V800 H-60Z" fill="#56679a"/></g>`
@@ -64,8 +120,11 @@ function palcoM(r){
     `<defs><radialGradient id="cbN" cx=".5" cy=".3" r=".7"><stop offset="0" stop-color="#eef2ff"/><stop offset=".6" stop-color="#a9b6dc"/><stop offset="1" stop-color="#5d6c9c" stop-opacity="0"/></radialGradient></defs>
       <g class="nuvem-base"><ellipse cx="150" cy="22" rx="150" ry="34" fill="url(#cbN)" opacity=".9"/><ellipse cx="96" cy="14" rx="62" ry="24" fill="#f1f4ff" opacity=".75"/><ellipse cx="206" cy="12" rx="70" ry="26" fill="#f1f4ff" opacity=".7"/><ellipse cx="150" cy="4" rx="58" ry="20" fill="#fff" opacity=".8"/></g>`
   ][p];
-  const ef = [{estrelas: 50, topo: .45, fios: 0, aurora: false}, {estrelas: 240, topo: .75, fios: 7, aurora: false}, {estrelas: 170, topo: .7, fios: 4, aurora: true}, {estrelas: 160, topo: .55, fios: 3, aurora: false}][p];
-  return {p, fundo: `<svg class="capa-paisagem" viewBox="0 0 400 800" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${fundo}</svg>`, base: `<svg class="capa-assento p${p}" viewBox="0 -40 300 260" aria-hidden="true">${base}</svg>`, ef};
+  const ef = Object.assign({}, [{estrelas: 50, topo: .45, fios: 0, aurora: false}, {estrelas: 240, topo: .75, fios: 7, aurora: false}, {estrelas: 170, topo: .7, fios: 4, aurora: true}, {estrelas: 160, topo: .55, fios: 3, aurora: false}][p]);
+  // A lua verdadeira nos palcos de serra e a cor da hora a que abres a app
+  let f2 = fundo.replace(/(<rect width="400" height="800" fill="url\(#pc\d\)"\/>)/, m => m + (p < 3 ? luaPequena(L) : '') + (HORA_TINTA[hora] ? `<defs>${HORA_TINTA[hora]}</defs><rect width="400" height="800" fill="url(#phora)"/>` : ''));
+  ef.brilho = hora === 'dia' ? .35 : hora === 'noite' ? 1 : .7;
+  return {p, hora, fundo: `<svg class="capa-paisagem" viewBox="0 0 400 800" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${f2}</svg>`, base: `<svg class="capa-assento p${p}" viewBox="0 -40 300 260" aria-hidden="true">${base}</svg>`, ef};
 }
 
 // O astrolábio: os nove reinos à volta dele, com o arco do caminho até ao próximo.
@@ -91,7 +150,8 @@ const VISUAL_C = [
   {manto: '#f6f3ea', manto2: '#d8d1bc', orla: '#e3c47e', interior: '#ffffff', aura: '#fff0c4', qi: '255,240,200', cabelo: '#e9e6ef'},
   {manto: '#fffbf1', manto2: '#eddcb4', orla: '#ffd36a', interior: '#ffffff', aura: '#ffe7a0', qi: '255,232,160', cabelo: '#f2efe8'}
 ];
-function avatarM({r: rm = 0, f = 0, fluxo = 0, mini = false, id = 'a', tes = null, desvio = []} = {}){
+function avatarM({r: rm = 0, f = 0, fluxo = 0, mini = false, id = 'a', tes = null, desvio = [], obj = null} = {}){
+  const OB = objetosM(obj, id, mini);
   const r = VIS_M[clamp(rm, 0, 8)], V = VISUAL_C[r], pele = '#e2c3a1', peleS = '#c9a483';
   const auraOp = (.1 + r * .07 + f * .08 + (mini ? 0 : fluxo * .05)).toFixed(2), danR = 9 + r * 2.6 + f * 4, aneis = Math.max(0, r - 1);
   const flut = r >= 5 ? ' c-flutua' : '';
@@ -132,7 +192,7 @@ function avatarM({r: rm = 0, f = 0, fluxo = 0, mini = false, id = 'a', tes = nul
   ${pilar}
   <path class="c-aura" d="M150 ${44 - r * 4} C${204 + r * 4} 62 ${240 + r * 3} 120 ${244 + r * 3} 200 C${248 + r * 3} 262 224 314 150 328 C76 314 ${52 - r * 3} 262 ${56 - r * 3} 200 C${60 - r * 3} 120 ${96 - r * 4} 62 150 ${44 - r * 4}Z" fill="url(#${id}gAura)" opacity="${auraOp}"/>
   ${Array.from({length: aneis}, (_, i) => `<ellipse class="c-anel" cx="150" cy="236" rx="${70 + i * 26}" ry="${18 + i * 7}" fill="none" stroke="${V.aura}" stroke-width="1" opacity="${(.5 - i * .08).toFixed(2)}" style="animation-delay:${-i * .8}s"/>`).join('')}
-  ${correntes}${halo}${espada}
+  ${correntes}${halo}${OB.tras}
   <g class="c-corpo${flut}">
     ${trono}
     <path d="M128 100 C121 140 117 182 124 206 L176 206 C183 182 179 140 172 100Z" fill="${V.cabelo}"/>${madeixas}
@@ -142,7 +202,7 @@ function avatarM({r: rm = 0, f = 0, fluxo = 0, mini = false, id = 'a', tes = nul
       <path d="M150 146 C126 146 106 152 98 166 C90 182 92 220 96 262 L204 262 C208 220 210 182 202 166 C194 152 174 146 150 146Z" fill="url(#${id}gManto)"/>
       <path d="M138 148 L150 184 L162 148Z" fill="${V.interior}"/>
       <path d="M134 148 L162 206 M166 148 L151 180" stroke="${V.orla}" stroke-width="5" stroke-linecap="round" fill="none"/>
-      <path d="M100 214 C130 222 170 222 200 214 L201 229 C170 237 130 237 99 229Z" fill="${V.orla}" opacity=".9"/>${pendente}
+      <path d="M100 214 C130 222 170 222 200 214 L201 229 C170 237 130 237 99 229Z" fill="${V.orla}" opacity=".9"/>${OB.frente}
       <path d="M102 164 C80 180 70 226 80 262 C88 280 112 280 132 270 C140 266 146 262 150 258 C134 250 120 232 114 206 C110 190 108 176 102 164Z" fill="url(#${id}gManto)"/>
       <path d="M198 164 C220 180 230 226 220 262 C212 280 188 280 168 270 C160 266 154 262 150 258 C166 250 180 232 186 206 C190 190 192 176 198 164Z" fill="url(#${id}gManto)"/>
       <path d="M102 164 C108 178 110 192 114 206 C120 232 134 250 150 258 M198 164 C192 178 190 192 186 206 C180 232 166 250 150 258" stroke="rgba(0,0,0,.22)" stroke-width="2" fill="none"/>
@@ -202,7 +262,7 @@ function passoCapaM(ts){
   // Estrelas (no salto final esticam em raios a partir do centro)
   c.globalCompositeOperation = 'lighter';
   for (const e of Q.estrelas){
-    const al = .35 + .65 * (.5 + .5 * Math.sin(Q.t * e.v + e.f));
+    const al = (.35 + .65 * (.5 + .5 * Math.sin(Q.t * e.v + e.f))) * (Q.ef && Q.ef.brilho != null ? Q.ef.brilho : 1);
     if (warp){ const dx = e.x - C.x, dy = e.y - C.y, k = 1 + warp * warp * 2.5; c.strokeStyle = `rgba(235,240,255,${(al * .9).toFixed(2)})`; c.lineWidth = e.r;
       c.beginPath(); c.moveTo(C.x + dx * (1 + warp * .3), C.y + dy * (1 + warp * .3)); c.lineTo(C.x + dx * k, C.y + dy * k); c.stroke(); }
     else { c.globalAlpha = al; c.drawImage(Q.sprE, e.x - e.r * 3, e.y - e.r * 3, e.r * 6, e.r * 6); }
@@ -262,11 +322,14 @@ function mensagemCapaM(c){
     else if (c.idx > v.idx) partes.push(`<span class="capa-sobe">Avançaste: ${esc(c.nivel)}.</span>`);
     const perdas = c.eventos.filter(e => e.tipo === 'perda' && e.n >= desdeN), perdido = perdas.reduce((s, e) => s + e.qi, 0);
     if (perdido) partes.push(`<span class="capa-desce">${perdas.length === 1 ? 'Um dia vazio' : perdas.length + ' dias vazios'}: −${perdido} qi.</span>`);
+    const salvos = c.eventos.filter(e => e.tipo === 'pilula' && e.n >= desdeN).length;
+    if (salvos) partes.push(`<span class="capa-sobe">${salvos === 1 ? 'Uma pílula protegeu-te de um dia vazio' : salvos + ' pílulas protegeram-te de dias vazios'}.</span>`);
     const ganho = c.qi - v.qi + perdido;
     if (ganho > 0 && !partes.length) partes.push(`<span class="capa-sobe">+${ganho} qi absorvido desde a última vez.</span>`);
   }
   if (partes.length) return partes.join(' ');
   if (c.gargalo.preso) return `<span class="capa-desce">${esc(textoGargalo(c))}</span>`;
+  if (c.lua.cheia && c.ativos.shen) return '<span class="capa-sobe">Lua cheia: hoje os rituais da Nascente valem o dobro.</span>';
   if (c.desvio.length) return `<span class="capa-desce">Desvio de qi: ${c.desvio.map(t => TESOUROS[t].app).join(' e ')} ${c.desvio.length > 1 ? 'esquecidas' : 'esquecida'}. Os ganhos valem 70%.</span>`;
   const falta = TRES.filter(t => c.ativos[t] && !c.hoje[t]).map(t => TESOUROS[t].app);
   return falta.length && c.qi ? `Hoje ainda falta: ${falta.join(', ')}.` : esc(c.frase);
@@ -280,12 +343,13 @@ function renderCapaM(){
   $('#capa').innerHTML = `${P.fundo}
     <canvas id="capaQi" aria-hidden="true"></canvas>
     <div class="capa-topo"><div class="capa-marca">MIRANTE</div>
-      <h1 class="capa-reino" style="--brilho:${V.aura}">${esc(REINOS_M[r].nome)}</h1><p class="capa-nivel">${esc(rf != null ? 'Pré-visualização do palco' : c.nivel)}</p></div>
-    <div class="capa-figura p${P.p}" id="capaFig">${P.base}${astrolabioM(rf != null ? Object.assign({}, c, {r, qi: NIVEIS_M.find(l => l.r === r).ini}) : c)}${avatarM({r, f: c.pct, fluxo: Math.max(0, 4 - FLUXOS_M.findIndex(f => f[2] === c.fluxo)), id: 'cp', tes, desvio: c.desvio})}</div>
+      <h1 class="capa-reino" style="--brilho:${V.aura}">${esc(REINOS_M[r].nome)}</h1><p class="capa-nivel">${esc(rf != null ? 'Pré-visualização do palco' : c.nivel)}</p>
+      <p class="capa-lua${c.lua.cheia ? ' cheia' : ''}"><svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="#2b3150"/><path d="${caminhoLua(10, 10, 8, c.lua.f)}" fill="#f6efd8"/></svg>${c.lua.nome}${c.lua.cheia ? ' · o Shen vale o dobro' : ''}</p></div>
+    <div class="capa-figura p${P.p}" id="capaFig">${P.base}${astrolabioM(rf != null ? Object.assign({}, c, {r, qi: NIVEIS_M.find(l => l.r === r).ini}) : c)}${avatarM({r, f: c.pct, fluxo: Math.max(0, 4 - FLUXOS_M.findIndex(f => f[2] === c.fluxo)), id: 'cp', tes, desvio: c.desvio, obj: c.objetos})}</div>
     <div class="capa-base">
       <div class="capa-tes">${chips}</div>
       <div class="capa-barra"><i style="width:${Math.round(c.pct * 100)}%;background:linear-gradient(90deg, ${V.orla}, ${V.aura}, #fff)"></i></div>
-      <div class="capa-dados"><span>${c.prox ? `${c.dentro} / ${c.custo} qi` : `${c.qi} qi`}</span><span>Fluxo: ${c.fluxo}${c.serie ? ` · ${c.serie} ${c.serie === 1 ? 'dia equilibrado' : 'dias equilibrados'}` : ''}</span></div>
+      <div class="capa-dados"><span>${c.prox ? `${c.dentro} / ${c.custo} qi` : `${c.qi} qi`}</span><span>Fluxo: ${c.fluxo}${c.serie ? ` · ${c.serie} ${c.serie === 1 ? 'dia' : 'dias'}` : ''}</span><span class="capa-pil" title="Pílulas de proteção">${pilulasHTML(c.pilulas)}</span></div>
       <p class="capa-msg">${mensagemCapaM(c)}</p>
       <p class="capa-dica">Toca três vezes para despertar</p><div class="capa-pontos"><i></i><i></i><i></i></div>
     </div>`;
@@ -343,12 +407,188 @@ function tileCultivo(){
   const c = cultivoMirante(), V = VISUAL_C[VIS_M[c.r]], tes = Object.assign({ativos: c.ativos}, c.hoje), alg = TRES.some(t => c.ativos[t]);
   const barras = TRES.map(t => { const T = TESOUROS[t], at = c.ativos[t] || !alg, fr = at ? clamp((c.hoje[t] || 0) / T.max, 0, 1) : 0;
     return `<div class="cu-t${at ? '' : ' off'}"><span><i class="mk" style="background:${T.cor}"></i>${T.nome}<small> ${T.app}</small></span><b>${at ? `${c.hoje[t] || 0}/${T.max}` : '—'}</b><em><i style="width:${Math.round(fr * 100)}%;background:${T.cor}"></i></em></div>`; }).join('');
-  return `<div class="painel tile ti-cult" data-acao="verCapa" role="button" tabindex="0" aria-label="O cultivador: ${esc(c.reino)}">
+  return `<div class="painel tile ti-cult" data-acao="ir" data-v="vCultivo" role="link" tabindex="0" aria-label="Cultivo: ${esc(c.reino)}, ver o detalhe">
     <span class="tile-cab"><i class="mk" style="background:${V.aura}"></i>Cultivo</span>
-    <div class="cu-grid"><div class="cu-fig">${avatarM({r: c.r, f: c.pct, mini: true, id: 'ti', tes, desvio: c.desvio})}</div>
-      <div class="cu-info"><h2 style="--brilho:${V.aura}">${esc(c.reino)}</h2><p class="sub">${esc(c.nivel)} · fluxo ${c.fluxo.toLowerCase()}</p>
+    <div class="cu-grid"><div class="cu-fig">${avatarM({r: c.r, f: c.pct, mini: true, id: 'ti', tes, desvio: c.desvio, obj: c.objetos})}</div>
+      <div class="cu-info"><h2 style="--brilho:${V.aura}">${esc(c.reino)}</h2><p class="sub">${esc(c.nivel)} · fluxo ${c.fluxo.toLowerCase()} <span class="capa-pil">${pilulasHTML(c.pilulas)}</span></p>
         <div class="cu-barra"><i style="width:${Math.max(2, Math.round(c.pct * 100))}%;background:linear-gradient(90deg, ${V.orla}, ${V.aura})"></i></div>
         <p class="cu-num">${c.prox ? `${c.dentro} / ${c.custo} qi · a seguir: ${esc(c.prox)}` : `${c.qi} qi`}</p>
         <div class="cu-tes">${barras}</div>
         ${c.gargalo.preso ? `<p class="cu-aviso">${esc(textoGargalo(c))}</p>` : c.desvio.length ? `<p class="cu-aviso">Desvio de qi: ${c.desvio.map(t => TESOUROS[t].app).join(' e ')} ${c.desvio.length > 1 ? 'esquecidas' : 'esquecida'}.</p>` : ''}</div></div></div>`;
+}
+
+const PILULA = cheia => `<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><g transform="rotate(-40 8 8)"><rect x="2" y="5" width="12" height="6" rx="3" fill="${cheia ? '#4FD6D6' : 'none'}" stroke="#4FD6D6" stroke-opacity="${cheia ? 1 : .45}"/>${cheia ? '<rect x="8" y="5" width="6" height="6" rx="3" fill="#ECE8DE"/>' : ''}</g></svg>`;
+const pilulasHTML = n => [0, 1, 2].map(i => PILULA(i < n)).join('');
+
+/* ================= Vista Cultivo: o cultivador, os objetos, o mapa da ascensão e a crónica do mês ================= */
+const CURTO_M = ['Mortal', 'Luz Estelar', 'Jade', 'Núcleo Lunar', 'Alma Solar', 'Constelações', 'Nebular', 'Galáxia', 'Firmamento'];
+const COR_REINO = ['#6b3346', '#1f2c5c', '#0d4a44', '#2a3d78', '#6a5a2a', '#1a2050', '#5a2a78', '#3a2468', '#7a6420'];
+const MESES_PT = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const nomeMes = m => { const [y, mm] = m.split('-').map(Number); return `${MESES_PT[mm - 1]} de ${y}`; };
+// Posição vertical de um valor de qi no mapa: cada reino ocupa uma faixa igual.
+function yReino(qi, base, bandH){
+  const i = nivelEm(NIVEIS_M, qi), r = NIVEIS_M[i].r, ini = NIVEIS_M.find(l => l.r === r).ini, prox = NIVEIS_M.find(l => l.r === r + 1);
+  const fr = prox ? clamp((qi - ini) / (prox.ini - ini), 0, 1) : .5;
+  return base - (r + fr) * bandH;
+}
+function svgMapaAsc(c, W){
+  const H = W < 560 ? 540 : 600, L = W < 560 ? 86 : 120, R = 16, T = 12, B = 30, bandH = (H - T - B) / 9, base = H - B, h = hojeN();
+  if (!c.dias.length) return '<p class="nota-vazia">Quando registares na Garfada, na Forja ou na Nascente, o caminho aparece aqui.</p>';
+  const n0 = c.dias[0].n, nFim = Math.max(h + 10, c.projecao ? Math.min(c.projecao.n, h + 200) + 6 : h + 10);
+  const X = n => L + (n - n0) / Math.max(1, nFim - n0) * (W - L - R), out = [];
+  out.push(`<defs><linearGradient id="maLinha" x1="0" x2="1"><stop offset="0" stop-color="#C9A86A"/><stop offset="1" stop-color="#fff2c4"/></linearGradient>
+    <filter id="maBrilho" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="2.5"/></filter></defs>`);
+  for (let i = 0; i < 9; i++){
+    const y = base - (i + 1) * bandH, atual = i === c.r;
+    out.push(`<rect x="${L}" y="${y.toFixed(1)}" width="${W - L - R}" height="${bandH.toFixed(1)}" fill="${COR_REINO[i]}" opacity="${atual ? .42 : i < c.r ? .26 : .14}"/>
+      <line x1="${L}" x2="${W - R}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#fff" stroke-opacity=".07"/>
+      <text x="${L - 10}" y="${(y + bandH / 2 - 1).toFixed(1)}" text-anchor="end" class="eixo${atual ? ' forte' : ''}">${ROMANOS[i]} · ${CURTO_M[i]}</text>
+      ${atual ? `<rect x="${L}" y="${y.toFixed(1)}" width="${W - L - R}" height="${bandH.toFixed(1)}" fill="none" stroke="#f2d48a" stroke-opacity=".55"/>` : ''}`);
+  }
+  // Meses no eixo
+  const d0 = new Date(n0 * DIA); let m = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() + 1, 1));
+  while (m.getTime() / DIA < nFim){ const n = Math.round(m.getTime() / DIA), x = X(n);
+    out.push(`<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${T}" y2="${base}" stroke="#fff" stroke-opacity=".05"/><text x="${x.toFixed(1)}" y="${H - 10}" text-anchor="middle" class="eixo">${MESES_PT[m.getUTCMonth()].slice(0, 3)}</text>`);
+    m = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1, 1)); }
+  // O caminho do qi
+  const pts = c.dias.map(d => `${X(d.n).toFixed(1)} ${yReino(d.qi, base, bandH).toFixed(1)}`), linha = 'M' + pts.join(' L');
+  out.push(`<path d="${linha}" fill="none" stroke="#f2d48a" stroke-width="5" opacity=".35" filter="url(#maBrilho)"/><path class="vh-linha" pathLength="1" d="${linha}" fill="none" stroke="url(#maLinha)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`);
+  // Projeção até ao próximo reino
+  const ult = c.dias[c.dias.length - 1], yU = yReino(ult.qi, base, bandH);
+  if (c.projecao){
+    const xp = X(Math.min(c.projecao.n, nFim - 6)), yp = base - (c.r + 1) * bandH;
+    out.push(`<path d="M${X(h).toFixed(1)} ${yU.toFixed(1)} L${xp.toFixed(1)} ${yp.toFixed(1)}" stroke="#f2d48a" stroke-width="1.6" stroke-dasharray="4 5" fill="none" opacity=".8"/>
+      <circle cx="${xp.toFixed(1)}" cy="${yp.toFixed(1)}" r="4" fill="none" stroke="#f2d48a" stroke-width="1.4"/>
+      ${xp - X(h) > 46 ? `<text x="${Math.min(xp, W - R - 4).toFixed(1)}" y="${(yp - 8).toFixed(1)}" text-anchor="end" class="eixo forte">${c.projecao.n <= h + 200 ? dataCurta(c.projecao.n) : 'mais de 6 meses'}</text>` : ''}`);
+  }
+  // Marcas: reinos rompidos, dias vazios e pílulas
+  for (const e of c.eventos){
+    const d = c.dias.find(x => x.n === e.n); if (!d) continue;
+    const x = X(e.n), y = yReino(d.qi, base, bandH);
+    if (e.tipo === 'rompe') out.push(`<path d="M${x} ${y - 9} L${x + 2.6} ${y - 2.6} L${x + 9} ${y} L${x + 2.6} ${y + 2.6} L${x} ${y + 9} L${x - 2.6} ${y + 2.6} L${x - 9} ${y} L${x - 2.6} ${y - 2.6}Z" fill="#fff2c4" stroke="#C9A86A" data-dica="${dica(`<b>${dataCurta(e.n)}</b><span>Rompeste para ${esc(REINOS_M[NIVEIS_M[e.idx].r].nome)}</span>`)}" style="cursor:help"/>`);
+    else if (e.tipo === 'perda') out.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.6" fill="#FF6B5E" stroke="#151923" data-dica="${dica(`<b>${dataCurta(e.n)}</b><span>Dia vazio: −${e.qi} qi</span>`)}"/>`);
+    else if (e.tipo === 'pilula') out.push(`<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(-40)" data-dica="${dica(`<b>${dataCurta(e.n)}</b><span>Dia vazio, protegido por uma pílula</span>`)}"><rect x="-6" y="-3" width="12" height="6" rx="3" fill="#4FD6D6" stroke="#151923"/></g>`);
+  }
+  out.push(`<circle class="ma-hoje" cx="${X(h).toFixed(1)}" cy="${yU.toFixed(1)}" r="5.5" fill="#fff" stroke="#f2d48a" stroke-width="2"/><text x="${(X(h) - 9).toFixed(1)}" y="${(yU + 18).toFixed(1)}" text-anchor="end" class="eixo forte">hoje</text>`);
+  out.push(`<line x1="${L}" x2="${W - R}" y1="${base}" y2="${base}" stroke="#353D52"/>`);
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" class="graf anim" role="img" aria-label="Mapa da ascensão pelos nove reinos">${out.join('')}</svg>`;
+}
+
+// O que ainda dá qi hoje.
+function dicasHoje(c){
+  const h = hojeN(), k = chaveDe(h), m = IDX.metas, d = IDX.dias.get(k), reg = (D.nas && D.nas.registos[k]) || {}, out = {};
+  const j = []; if (!d || d.n < 2) j.push('2 refeições registadas (+4)'); if (!d || Math.abs(d.kcal - m.kcal) > m.kcal * .1) j.push('calorias na meta (+5)'); if (!d || d.prot < m.prot * .9) j.push('proteína na meta (+2)'); if ((D.agua[k] || 0) < m.agua) j.push('água na meta (+1)');
+  out.jing = j.length ? 'Falta: ' + j.join(', ') + '.' : 'Tudo feito hoje.';
+  out.qi = c.hoje.qi >= 10 ? (c.hoje.qi >= 12 ? 'Treino feito, com recorde.' : 'Treino feito. Um recorde dava mais 2.') : 'Treina hoje (+10, mais 2 com recorde). Ao fechar a semana com a meta cumprida: +12.';
+  const s = []; if (!reg.mF) s.push('ritual da manhã'); if (!reg.nF) s.push('ritual da noite'); if (!(D.nas && D.nas.pele.some(x => x.d === k))) s.push('registo da pele');
+  out.shen = (s.length ? 'Falta: ' + s.join(', ') + '.' : 'Tudo feito hoje.') + (c.lua.cheia ? ' Lua cheia: vale o dobro.' : '');
+  return out;
+}
+let cronMes = null;
+function renderCultivo(){
+  const c = cultivoMirante(), V = VISUAL_C[VIS_M[c.r]], P = palcoM(c.r), tes = Object.assign({ativos: c.ativos}, c.hoje), alg = TRES.some(t => c.ativos[t]);
+  const ob = c.objetos, dh = dicasHoje(c), mesAtual = chaveData(new Date()).slice(0, 7);
+  const meses = [...new Set(c.dias.map(d => d.k.slice(0, 7)))].slice(-4).reverse();
+  if (!cronMes || !meses.includes(cronMes)) cronMes = meses[0] || mesAtual;
+  const cron = (ML.get('cronicas', {}) || {})[cronMes];
+  const cartaObj = (k, vb, titulo, app, o, vazio) => `<div class="ob-carta${o.ativo ? '' : ' off'}"><svg viewBox="${vb}" aria-hidden="true">${o.ativo ? (k === 'espada' ? objetosM({espada: o}, 'ob' + k, false).tras : objetosM({[k]: o}, 'ob' + k, false).frente) : ''}</svg>
+    <div><span class="tile-cab">${titulo} · ${app}</span><b>${o.ativo ? esc(o.nome) : 'Por ganhar'}</b><span class="sub">${o.ativo ? esc(o.txt) + (o.prox ? '. ' + esc(o.prox) + '.' : '.') : vazio}</span></div></div>`;
+  $('#vCultivo').innerHTML = `<div class="cab-vista"><h1>Cultivo</h1><p class="sub">A comida (Jing), os treinos (Qi) e os rituais (Shen) dão qi ao teu cultivador. Sobe pelos nove céus, do cume do Mirante ao firmamento.</p></div>
+  <div class="area-grid">
+    <section class="painel largo cult-hero">
+      <div class="ch-palco">${P.fundo}<div class="ch-fig">${P.base}${avatarM({r: c.r, f: c.pct, fluxo: Math.max(0, 4 - FLUXOS_M.findIndex(f => f[2] === c.fluxo)), id: 'vh', tes, desvio: c.desvio, obj: ob})}</div></div>
+      <div class="ch-info"><span class="tile-cab">Reino ${ROMANOS[c.r]} de IX</span><h2 style="--brilho:${V.aura}">${esc(c.reino)}</h2><p class="sub">${esc(c.nivel)}. ${esc(c.frase)}</p>
+        <div class="cu-barra"><i style="width:${Math.max(2, Math.round(c.pct * 100))}%;background:linear-gradient(90deg, ${V.orla}, ${V.aura})"></i></div>
+        <p class="cu-num">${c.prox ? `${c.dentro} / ${c.custo} qi · a seguir: ${esc(c.prox)}` : `${c.qi} qi`}</p>
+        <dl class="stats"><div><dt>Qi total</dt><dd>${fmtInt(c.qi)}</dd></div><div><dt>Fluxo</dt><dd>${c.fluxo} <small>×${String(c.mult).replace('.', ',')}</small></dd></div>
+          <div><dt>Pílulas</dt><dd class="capa-pil">${pilulasHTML(c.pilulas)}</dd></div><div><dt>Lua</dt><dd style="font-size:16px">${c.lua.nome}</dd></div></dl>
+        <p class="contexto">${c.gargalo.preso ? esc(textoGargalo(c)) : c.projecao ? `Ao ritmo dos últimos 14 dias (${fmtInt(c.ritmo)} qi por dia), chegas a <b>${esc(c.projecao.reino)}</b> ${c.projecao.dias <= 200 ? `por volta de <b>${dataCurta(c.projecao.n)}</b>` : 'daqui a mais de 6 meses'}.` : 'Regista alguns dias para ver quando chegas ao próximo reino.'}
+          ${c.usadas ? ` Já gastaste ${c.usadas} ${c.usadas === 1 ? 'pílula' : 'pílulas'} em dias vazios.` : ''}</p>
+        <div class="linha-bt"><button class="bt pri" data-acao="verCapa">Ver o cultivador</button><button class="bt" data-acao="partilharCult">Partilhar imagem</button></div></div>
+    </section>
+    <section class="painel"><h2>Hoje</h2><p class="sub">O que já deste ao cultivador e o que ainda falta.</p>
+      <div class="hoje-tes">${TRES.map(t => { const T = TESOUROS[t], at = c.ativos[t] || !alg, v = c.hoje[t] || 0, mx = t === 'shen' && c.lua.cheia ? 20 : T.max;
+        return `<div class="ht${at ? '' : ' off'}"><div class="ht-cab"><span><i class="mk" style="background:${T.cor}"></i>${T.nome} <small>${T.app}</small></span><b>${at ? `${v}<small>/${mx}</small>` : '—'}</b></div>
+          <em><i style="width:${at ? Math.round(clamp(v / mx, 0, 1) * 100) : 0}%;background:${T.cor}"></i></em><p>${at ? dh[t] : `Sem registos da ${T.app} nos últimos 30 dias: não conta, nem para o bem nem para o mal.`}</p></div>`; }).join('')}</div></section>
+    <section class="painel"><h2>Os teus objetos</h2><p class="sub">Cada app dá-lhe um objeto que cresce contigo.</p>
+      <div class="obj-lista">${cartaObj('espada', '172 44 104 168', 'Espada', 'Forja', ob.espada, 'Treina na Forja para a forjares.')}${cartaObj('cabaca', '88 218 40 56', 'Cabaça de elixir', 'Garfada', ob.cabaca, 'Regista a comida na Garfada para a encheres.')}${cartaObj('jade', '172 218 40 56', 'Pendente de jade', 'Nascente', ob.jade, 'Faz os rituais da Nascente para o acenderes.')}</div>
+      <p class="contexto">Pílulas: cada 7 dias equilibrados seguidos dão uma (máximo 3). Um dia vazio gasta uma em vez de te tirar qi.</p></section>
+    <section class="painel largo"><h2>Mapa da ascensão</h2><p class="sub">O teu qi pelos nove reinos. Estrela: rompeste um reino. Ponto vermelho: dia vazio. Cápsula: pílula gasta. Tracejado: quando chegas ao próximo, ao ritmo atual.</p>
+      <div class="graf-caixa" data-graf="mapaAsc"></div></section>
+    <section class="painel largo cronica"><h2>Crónica do mês</h2>
+      <div class="chips" role="group" aria-label="Mês">${meses.map(m => `<button class="chip ${m === cronMes ? 'on' : ''}" data-acao="cronMes" data-v="${m}">${MESES_PT[+m.slice(5) - 1]}</button>`).join('')}</div>
+      ${cron ? `<h3 class="cron-titulo">${esc(cron.titulo)}</h3>${cron.texto.split(/\n+/).filter(Boolean).map(p => `<p class="cron-p">${esc(p)}</p>`).join('')}<p class="contexto">Escrita pela IA a ${dataCurta(numDe(chaveData(new Date(cron.ts))))}${cronMes === mesAtual ? ', com o mês ainda em curso' : ''}.</p>
+        <div class="linha-bt"><button class="bt" data-acao="cronica" data-v="${cronMes}">Escrever de novo</button></div>`
+      : `<p class="sub">O cronista da montanha escreve, em estilo wuxia, o que se passou em ${nomeMes(cronMes)}: os reinos que rompeste, onde fraquejaste e o conselho do mestre.${cronMes === mesAtual ? ' O mês ainda não acabou.' : ''}</p>
+        ${D.ia && D.ia.chave ? `<div class="linha-bt"><button class="bt pri" data-acao="cronica" data-v="${cronMes}">Escrever a crónica de ${MESES_PT[+cronMes.slice(5) - 1]}</button></div>` : '<div class="linha-bt"><button class="bt" data-acao="irLigacoes">Pôr a chave do Gemini</button></div>'}`}
+    </section>
+  </div>`;
+  GRAFS.mapaAsc = w => svgMapaAsc(c, w);
+  desenhar($('#vCultivo'));
+}
+
+/* ---------- A crónica do mês (IA) ---------- */
+function resumoMesCultivo(mes){
+  const c = cultivoMirante(), dm = c.dias.filter(d => d.k.startsWith(mes)); if (!dm.length) return null;
+  const i0 = c.dias.indexOf(dm[0]), qiIni = i0 > 0 ? c.dias[i0 - 1].qi : 0, qiFim = dm[dm.length - 1].qi;
+  const rI = infoNivel(REINOS_M, NIVEIS_M, qiIni), rF = infoNivel(REINOS_M, NIVEIS_M, qiFim), ev = c.eventos.filter(e => chaveDe(e.n).startsWith(mes));
+  const med = t => Math.round(media(dm.map(d => d.p[t])) * 10) / 10, semanas = [];
+  for (let seg = segundaDe(dm[0].n); seg <= dm[dm.length - 1].n; seg += 7){ try { const S = semana(seg); if (S.nota && S.nota.total != null) semanas.push({semana: rotSemana(seg), nota: S.nota.total}); } catch(e){} }
+  const melhor = semanas.slice().sort((a, b) => b.nota - a.nota)[0];
+  return {mes: nomeMes(mes), em_curso: mes === chaveData(new Date()).slice(0, 7), dias_contados: dm.length, reino_no_inicio: `${rI.reino} (${rI.nivel})`, reino_no_fim: `${rF.reino} (${rF.nivel})`,
+    reinos_rompidos: ev.filter(e => e.tipo === 'rompe').map(e => REINOS_M[NIVEIS_M[e.idx].r].nome), qi_ganho: dm.reduce((s, d) => s + d.ganho, 0), qi_perdido: dm.reduce((s, d) => s + d.perda, 0),
+    dias_vazios: ev.filter(e => e.tipo === 'perda').length, pilulas_gastas: ev.filter(e => e.tipo === 'pilula').length, dias_equilibrados: dm.filter(d => d.equilibrado).length,
+    media_por_dia: {jing_comida_max_12: med('jing'), qi_treino_max_12: med('qi'), shen_rituais_max_10: med('shen')}, treinos: dm.filter(d => d.p.qi >= 10).length, dias_com_recorde: dm.filter(d => d.p.qi >= 12).length,
+    desvios: [...new Set(dm.flatMap(d => d.desvio))].map(t => TESOUROS[t].app), notas_das_semanas: semanas, melhor_semana: melhor || null,
+    objetos: {espada: c.objetos.espada.ativo ? c.objetos.espada.nome : null, cabaca: c.objetos.cabaca.ativo ? c.objetos.cabaca.nome : null, jade: c.objetos.jade.ativo ? c.objetos.jade.nome : null}};
+}
+async function pedirCronica(mes){
+  const R = resumoMesCultivo(mes); if (!R) throw new Error('Não há dias registados neste mês.');
+  const prompt = `És o cronista da montanha do Mirante. Escreve em português de Portugal (PT-PT) a crónica de ${R.mes} do caminho de cultivo de um praticante, no estilo de um romance wuxia (mestres, qi, reinos, tribulações), mas fiel aos números.
+O qi vem de três tesouros: Jing é a alimentação (registada na Garfada), Qi são os treinos de ginásio (Forja) e Shen são os rituais de cuidado da pele (Nascente). Há nove reinos, do cume do Mirante ao firmamento.
+Escreve três parágrafos curtos (no total até 170 palavras): o que conquistou, onde fraquejou e um conselho do mestre para o mês seguinte.${R.em_curso ? ' O mês ainda está a decorrer: fala do que já aconteceu.' : ''}
+Não inventes acontecimentos que não estão nos dados; podes usar metáforas. Sem emojis, sem termos em inglês, sem conselhos médicos.
+Responde só com JSON no formato {"titulo": "título curto e épico", "texto": "os três parágrafos separados por \\n\\n"}.
+Dados: ${JSON.stringify(R)}`;
+  const txt = await IA.pedir({texto: prompt, json: true, chave: D.ia.chave, modelo: D.ia.modelo, temperatura: .8});
+  const a = txt.indexOf('{'), b = txt.lastIndexOf('}'); let o;
+  try { o = JSON.parse(txt.slice(a, b + 1)); } catch(e){ throw new Error('A IA respondeu num formato inválido. Tenta outra vez.'); }
+  if (!o.texto) throw new Error('A IA não escreveu a crónica. Tenta outra vez.');
+  const todas = ML.get('cronicas', {}) || {}; todas[mes] = {ts: Date.now(), titulo: String(o.titulo || 'Crónica de ' + R.mes).slice(0, 120), texto: String(o.texto).slice(0, 2500)};
+  ML.set('cronicas', todas); if (typeof agendarSyncMirante === 'function') agendarSyncMirante();
+  return todas[mes];
+}
+
+/* ---------- Imagem do cultivador para partilhar ---------- */
+const svgParaImg = async (svg, w, h) => { const img = new Image(); img.width = w; img.height = h;
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg.replace('<svg ', `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" `)); await img.decode(); return img; };
+async function imagemCultivo(){
+  const c = cultivoMirante(), V = VISUAL_C[VIS_M[c.r]], P = palcoM(c.r), W = 1080, H = 1350, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d');
+  try { await Promise.all(['600 90px Fraunces', 'italic 500 44px Fraunces', '700 30px Cinzel'].map(f => document.fonts.load(f))); } catch(e){}
+  g.fillStyle = '#05060d'; g.fillRect(0, 0, W, H);
+  try { const fundo = await svgParaImg(P.fundo.replace('preserveAspectRatio="xMidYMax slice"', ''), W, W * 2); g.drawImage(fundo, 0, H - W * 2); } catch(e){}
+  const fw = 660, fh = fw * 1.2, fx = (W - fw) / 2, fy = 270;
+  try { const base = await svgParaImg(P.base, fw * 1.16, fw * 1.16 * 260 / 300); g.drawImage(base, fx - fw * .08, fy + fh * .83); } catch(e){}
+  try { const av = avatarM({r: c.r, f: c.pct, id: 'im', tes: Object.assign({ativos: c.ativos}, c.hoje), desvio: c.desvio, obj: c.objetos}).replace('<g class="c-olhos-f">', '<g class="c-olhos-f" display="none">');
+    g.drawImage(await svgParaImg(av, fw, fh), fx, fy); } catch(e){}
+  const sombra = g.createLinearGradient(0, H - 330, 0, H); sombra.addColorStop(0, 'rgba(3,5,12,0)'); sombra.addColorStop(.4, 'rgba(3,5,12,.85)'); sombra.addColorStop(1, 'rgba(3,5,12,.96)');
+  g.fillStyle = sombra; g.fillRect(0, H - 330, W, 330);
+  const topo = g.createLinearGradient(0, 0, 0, 300); topo.addColorStop(0, 'rgba(3,5,12,.7)'); topo.addColorStop(1, 'rgba(3,5,12,0)'); g.fillStyle = topo; g.fillRect(0, 0, W, 300);
+  g.textAlign = 'center';
+  g.font = '700 30px Cinzel, serif'; g.fillStyle = '#C9A86A'; g.fillText('M I R A N T E', W / 2, 92);
+  g.font = '600 86px Fraunces, serif'; g.fillStyle = '#f7f3e8'; g.shadowColor = V.aura; g.shadowBlur = 30; g.fillText(c.reino, W / 2, 190, W - 100); g.shadowBlur = 0;
+  g.font = 'italic 500 44px Fraunces, serif'; g.fillStyle = '#C9A86A'; g.fillText(c.nivel, W / 2, 250);
+  // Barra e números
+  const bx = 120, by = H - 228, bw = W - 240;
+  g.fillStyle = 'rgba(255,255,255,.12)'; g.beginPath(); g.roundRect ? g.roundRect(bx, by, bw, 14, 7) : g.rect(bx, by, bw, 14); g.fill();
+  const gb = g.createLinearGradient(bx, 0, bx + bw, 0); gb.addColorStop(0, V.orla); gb.addColorStop(1, V.aura); g.fillStyle = gb;
+  g.beginPath(); g.roundRect ? g.roundRect(bx, by, Math.max(14, bw * c.pct), 14, 7) : g.rect(bx, by, bw * c.pct, 14); g.fill();
+  g.font = '400 30px system-ui, sans-serif'; g.fillStyle = '#A2A8B7'; g.textAlign = 'left'; g.fillText(c.prox ? `${c.dentro} / ${c.custo} qi` : `${c.qi} qi`, bx, by + 56);
+  g.textAlign = 'right'; g.fillText(`Fluxo: ${c.fluxo} · ${fmtInt(c.qi)} qi no total`, bx + bw, by + 56);
+  const objs = [c.objetos.espada.ativo && c.objetos.espada.nome, c.objetos.cabaca.ativo && c.objetos.cabaca.nome, c.objetos.jade.ativo && c.objetos.jade.nome].filter(Boolean);
+  g.textAlign = 'center'; g.font = 'italic 500 36px Fraunces, serif'; g.fillStyle = '#ECE8DE';
+  if (objs.length) g.fillText(objs.join('  ·  '), W / 2, by + 118, W - 160);
+  g.font = '400 26px system-ui, sans-serif'; g.fillStyle = '#6D7385'; g.fillText('Comida da Garfada, treinos da Forja, rituais da Nascente.', W / 2, H - 34);
+  return new Promise(res => cv.toBlob(res, 'image/png'));
 }

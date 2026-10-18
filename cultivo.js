@@ -28,6 +28,14 @@ const FLUXOS_M = [[28, 1.6, 'Torrente'], [14, 1.4, 'Rio'], [6, 1.25, 'Corrente']
 const fluxoM = serie => FLUXOS_M.find(f => serie >= f[0]);
 const perdaM = idx => Math.max(15, Math.round(Math.min(NIVEIS_M[idx].custo, 2000) * .06));
 
+// A lua verdadeira de cada dia (idade em dias desde a lua nova, iluminação e nome). Na lua cheia, o Shen vale o dobro.
+const LUA_NOVA_REF = Date.UTC(2000, 0, 6, 18, 14), MES_LUNAR = 29.530588853;
+function faseLua(n){
+  const idade = (((n * DIA + 12 * 36e5 - LUA_NOVA_REF) / DIA) % MES_LUNAR + MES_LUNAR) % MES_LUNAR, f = idade / MES_LUNAR;
+  const nome = f < .034 || f > .966 ? 'Lua nova' : f < .216 ? 'Lua crescente' : f < .284 ? 'Quarto crescente' : f < .466 ? 'Crescente gibosa' : f < .534 ? 'Lua cheia' : f < .716 ? 'Minguante gibosa' : f < .784 ? 'Quarto minguante' : 'Lua minguante';
+  return {idade, f, ilum: (1 - Math.cos(2 * Math.PI * f)) / 2, nome, cheia: Math.abs(idade - MES_LUNAR / 2) <= 1};
+}
+
 // Dias com registo de cada app e recordes por dia (calculado uma vez por cada leitura dos dados).
 function baseCultivo(){
   const dias = {jing: new Set(), qi: new Set(), shen: new Set(), forma: new Set()}, recordes = new Set();
@@ -61,8 +69,10 @@ function pontosDia(n, B){
   if (reg.mF) shen += 4;
   if (reg.nF) shen += 4;
   if (B.pele.has(k)) shen += 2;
+  const cheia = faseLua(n).cheia;
+  if (cheia) shen *= 2;
   if (B.dias.forma.has(k)) forma += 1;
-  return {jing: Math.min(12, jing), qi: Math.min(12, qi), shen: Math.min(10, shen), forma};
+  return {jing: Math.min(12, jing), qi: Math.min(12, qi), shen: Math.min(cheia ? 20 : 10, shen), forma, cheia};
 }
 
 // Bónus ao fechar a semana (no domingo): semana forjada e peso a andar para a meta.
@@ -103,7 +113,7 @@ function cultivoMirante(){
   const vazio = {qi: 0, serie: 0, fluxo: 'Disperso', mult: 1, dias: [], eventos: [], hoje: {jing: 0, qi: 0, shen: 0, forma: 0}, ativos: {}, desvio: [], gargalo: {preso: false, falta: []}, total: 0, perdido: 0, chao: 0};
   if (!prims.length){ CULT = Object.assign(vazio, infoNivel(REINOS_M, NIVEIS_M, 0)); CULT_D = D; CULT_H = h; return CULT; }
   const ini = Math.min(...prims), ultimo = {}, zeros = {jing: 0, qi: 0, shen: 0};
-  let qi = 0, chao = 0, serie = 0, total = 0, perdido = 0, gargalo = {preso: false, falta: []};
+  let qi = 0, chao = 0, serie = 0, total = 0, perdido = 0, pilulas = 0, usadas = 0, gargalo = {preso: false, falta: []};
   const dias = [], eventos = [];
   for (let n = ini; n <= h; n++){
     const k = chaveDe(n), p = pontosDia(n, B), ehHoje = n === h;
@@ -125,7 +135,9 @@ function cultivoMirante(){
     const idx0 = nivelEm(NIVEIS_M, qi);
     // Dia vazio: nada registado (quem só usa a Forja não perde nos dias de descanso, se a semana vai a tempo).
     const vazioDia = ativos3.length && p.jing + p.qi + p.shen + p.forma === 0 && !(ativos3.length === 1 && ativos.qi && cumpre.qi);
-    if (!ehHoje && vazioDia){
+    let protegido = false;
+    if (!ehHoje && vazioDia && pilulas > 0){ pilulas--; usadas++; protegido = true; eventos.push({n, tipo: 'pilula'}); }
+    else if (!ehHoje && vazioDia){
       perda = Math.min(perdaM(idx0), qi - chao); qi -= perda; perdido += perda; serie = 0;
       if (perda) eventos.push({n, tipo: 'perda', qi: perda});
     } else if (ganho){
@@ -140,16 +152,36 @@ function cultivoMirante(){
       const idx1 = nivelEm(NIVEIS_M, qi);
       if (idx1 > idx0) eventos.push({n, tipo: NIVEIS_M[idx1].r > NIVEIS_M[idx0].r ? 'rompe' : 'nivel', idx: idx1});
     }
-    if (!ehHoje || equilibrado) serie = equilibrado ? serie + 1 : 0;
+    // Cada 7 dias equilibrados seguidos dão uma pílula (máximo 3); um dia vazio gasta uma em vez de tirar qi, e a série fica.
+    if (equilibrado){ serie++; if (serie % 7 === 0 && pilulas < 3){ pilulas++; eventos.push({n, tipo: 'ganhaPilula'}); } }
+    else if (!ehHoje && !protegido) serie = 0;
     const ni = nivelEm(NIVEIS_M, qi);
     if (NIVEIS_M[ni].r > NIVEIS_M[nivelEm(NIVEIS_M, chao)].r) chao = NIVEIS_M.find(l => l.r === NIVEIS_M[ni].r).ini;
-    dias.push({n, k, p, bon, mult, ganho: perda ? 0 : ganho, perda, equilibrado, desvio, ativos});
+    dias.push({n, k, p, bon, mult, ganho: perda || protegido ? 0 : ganho, perda, protegido, equilibrado, desvio, ativos, qi});
   }
-  const ultimoDia = dias[dias.length - 1], Fh = fluxoM(serie);
+  const ultimoDia = dias[dias.length - 1], Fh = fluxoM(serie), info = infoNivel(REINOS_M, NIVEIS_M, qi);
+  // Ritmo dos últimos 14 dias e projeção até ao próximo reino
+  const ult14 = dias.slice(-15, -1), ritmo = ult14.length ? ult14.reduce((s, d) => s + d.ganho - d.perda, 0) / ult14.length : 0;
+  const proxR = NIVEIS_M.find(l => l.r === info.r + 1), faltaR = proxR ? proxR.ini - qi : 0;
+  const projecao = proxR && ritmo > 0 ? {reino: REINOS_M[info.r + 1].nome, dias: Math.ceil(faltaR / ritmo), n: h + Math.ceil(faltaR / ritmo), falta: faltaR} : null;
   CULT = Object.assign({qi, serie, fluxo: Fh[2], mult: Fh[1], dias, eventos, hoje: ultimoDia.p, ativos: ultimoDia.ativos, desvio: ultimoDia.desvio,
-    gargalo, total, perdido, chao}, infoNivel(REINOS_M, NIVEIS_M, qi));
+    gargalo, total, perdido, chao, pilulas, usadas, ritmo, projecao, lua: faseLua(h), objetos: objetosCultivo(B, ultimoDia.ativos, h)}, info);
   CULT_D = D; CULT_H = h;
   return CULT;
+}
+// Os objetos que cada app dá ao cultivador.
+const NIVEIS_ESPADA = ['Ferro bruto', 'Aço temperado', 'Fio de luz', 'Lâmina em brasa', 'Espada do dragão'];
+const NIVEIS_JADE = ['Jade baço', 'Jade desperto', 'Jade luminoso', 'Jade celeste', 'Coração de jade'];
+function objetosCultivo(B, ativos, h){
+  let rec30 = 0; for (const k of B.recordes) if (numDe(k) > h - 30) rec30++;
+  const ne = rec30 >= 10 ? 4 : rec30 >= 6 ? 3 : rec30 >= 3 ? 2 : rec30 >= 1 ? 1 : 0;
+  const m = IDX.metas; let prot = 0; for (let n = h - 13; n <= h; n++){ const c = IDX.dias.get(chaveDe(n)); if (c && c.prot >= m.prot * .9) prot++; }
+  const sr = D.nas && typeof cultivoNascente === 'function' ? cultivoNascente().serie : 0, nj = sr >= 40 ? 4 : sr >= 20 ? 3 : sr >= 10 ? 2 : sr >= 4 ? 1 : 0;
+  return {
+    espada: {ativo: !!ativos.qi, nivel: ne, nome: NIVEIS_ESPADA[ne], v: rec30, txt: `${rec30} ${rec30 === 1 ? 'recorde' : 'recordes'} nos últimos 30 dias`, prox: ne < 4 ? `${[1, 3, 6, 10][ne] - rec30} para ${NIVEIS_ESPADA[ne + 1]}` : 'No máximo'},
+    cabaca: {ativo: !!ativos.jing, frac: prot / 14, v: prot, nome: prot >= 12 ? 'Elixir a transbordar' : prot >= 8 ? 'Elixir forte' : prot >= 4 ? 'Meio elixir' : 'Cabaça quase vazia', txt: `${prot} de 14 dias com a proteína na meta`},
+    jade: {ativo: !!ativos.shen, nivel: nj, nome: NIVEIS_JADE[nj], v: sr, txt: `${sr} ${sr === 1 ? 'ritual seguido' : 'rituais seguidos'} na Nascente`, prox: nj < 4 ? `${[4, 10, 20, 40][nj] - sr} para ${NIVEIS_JADE[nj + 1]}` : 'No máximo'}
+  };
 }
 // Texto curto do que falta para romper.
 const NOME_FALTA = {jing: 'comer na meta (Garfada)', qi: 'treinar o que planeaste (Forja)', shen: 'fazer os rituais (Nascente)', nota: 'uma semana com nota 70 ou mais'};

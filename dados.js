@@ -282,7 +282,7 @@ function reposConhecidos(){
   return out;
 }
 function estadoMirante(){
-  return {app: 'mirante', versao: 1, repos: reposConhecidos(), vigia: ML.get('vigia', {}) || {}, vigiaIA: ML.get('vigiaIA', null)};
+  return {app: 'mirante', versao: 1, repos: reposConhecidos(), vigia: ML.get('vigia', {}) || {}, vigiaIA: ML.get('vigiaIA', null), cronicas: ML.get('cronicas', {}) || {}};
 }
 function fundirMirante(rem){
   if (!ehObj(rem)) return;
@@ -295,6 +295,10 @@ function fundirMirante(rem){
   for (const [k, x] of Object.entries(ehObj(rem.vigia) ? rem.vigia : {})) if (ehObj(x) && x.r && (!ehObj(v[k]) || (x.ts || 0) > (v[k].ts || 0))) v[k] = x;
   const limpo = {}; for (const k of Object.keys(v).sort().slice(-20)) limpo[k] = v[k];
   ML.set('vigia', limpo);
+  // Crónicas do mês: ganha a mais recente de cada mês.
+  const cr = Object.assign({}, ML.get('cronicas', {}) || {});
+  for (const [m, x] of Object.entries(ehObj(rem.cronicas) ? rem.cronicas : {})) if (ehObj(x) && x.texto && (!ehObj(cr[m]) || (x.ts || 0) > (cr[m].ts || 0))) cr[m] = x;
+  ML.set('cronicas', cr);
   const a = ML.get('vigiaIA', null), b = rem.vigiaIA;
   if (ehObj(b) && b.r && (!ehObj(a) || (b.ts || 0) > (a.ts || 0))) ML.set('vigiaIA', b);
 }

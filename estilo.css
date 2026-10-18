@@ -1019,3 +1019,40 @@ html.com-capa body { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) { #capa *, .cultivador * { animation: none !important; } }
 #capa::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 36%; z-index: 3; pointer-events: none; background: linear-gradient(to top, rgba(3,5,12,.82), rgba(3,5,12,.4) 55%, transparent); }
 .cu-t .mk { margin-right: 6px; }
+
+/* Vista Cultivo */
+.capa-lua { display: inline-flex; align-items: center; gap: 6px; margin: 8px 0 0; padding: 3px 10px; border-radius: 99px; background: rgba(5,7,14,.5); font-size: 12px; color: var(--nevoa); }
+.capa-lua.cheia { color: #bff4f4; box-shadow: 0 0 14px rgba(79,214,214,.35); }
+.capa-pil { display: inline-flex; gap: 2px; vertical-align: -2px; }
+.capa-dados { align-items: center; }
+.cult-hero { padding: 0; overflow: hidden; display: grid; }
+.ch-palco { position: relative; height: 330px; overflow: hidden; }
+.ch-palco .capa-paisagem { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ch-fig { position: absolute; left: 50%; bottom: 30px; width: 230px; transform: translateX(-50%); }
+.ch-fig .cultivador { width: 100%; height: auto; position: relative; z-index: 2; overflow: visible; display: block; }
+.ch-fig .capa-assento { top: 83%; }
+.ch-info { padding: 16px 18px 18px; }
+.ch-info h2 { font: 600 28px/1.1 var(--serif); margin-top: 4px; text-shadow: 0 0 20px var(--brilho); }
+.ch-info .stats { margin: 14px 0 6px; }
+@media (min-width: 900px) { .cult-hero { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); } .ch-palco { height: 100%; min-height: 420px; } .ch-fig { width: 280px; } .ch-info { padding: 26px 26px 24px; align-self: center; } }
+.hoje-tes { display: grid; gap: 14px; margin-top: 12px; }
+.ht-cab { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; }
+.ht-cab small { color: var(--bruma); font-size: 12px; } .ht-cab b { font: 600 18px var(--serif); } .ht-cab .mk { margin-right: 6px; }
+.ht em { display: block; height: 5px; border-radius: 9px; background: rgba(255,255,255,.06); overflow: hidden; margin: 6px 0; }
+.ht em i { display: block; height: 100%; border-radius: inherit; }
+.ht p { font-size: 13px; color: var(--nevoa); line-height: 1.45; } .ht.off { opacity: .5; }
+.obj-lista { display: grid; gap: 10px; margin-top: 12px; }
+.ob-carta { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 12px; align-items: center; padding: 10px; border-radius: 14px; background: rgba(10,13,20,.35); border: 1px solid var(--aresta); }
+.ob-carta svg { width: 58px; height: 74px; overflow: visible; }
+.ob-carta b { display: block; font: 600 17px var(--serif); margin: 2px 0; }
+.ob-carta .sub { font-size: 12.5px; }
+.ob-carta.off { opacity: .55; } .ob-carta.off svg { border-radius: 10px; background: rgba(255,255,255,.03); }
+.c-espada.e4 .esp-brilho, .c-espada.e3 .esp-brilho { animation: cmPulso 1.6s ease-in-out infinite; }
+.esp-faiscas circle { animation: cmFaisca 1.8s ease-out infinite; transform-box: fill-box; }
+.esp-faiscas circle:nth-child(2) { animation-delay: .5s; } .esp-faiscas circle:nth-child(3) { animation-delay: 1s; } .esp-faiscas circle:nth-child(4) { animation-delay: 1.4s; }
+@keyframes cmFaisca { 0% { opacity: 0; transform: translateY(4px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+.c-jade.j3, .c-jade.j4 { filter: drop-shadow(0 0 5px rgba(160,255,220,.7)); }
+.ma-hoje { animation: cmPulso 1.8s ease-in-out infinite; }
+.cronica .chips { margin-top: 10px; }
+.cron-titulo { font: italic 600 22px/1.25 var(--serif); color: var(--ouro); margin: 16px 0 8px; }
+.cron-p { font: 400 16px/1.65 var(--serif); color: var(--luar); margin: 0 0 12px; max-width: 70ch; }

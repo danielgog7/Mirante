@@ -120,13 +120,13 @@ function aviso(){
 }
 
 /* ---------- Vistas ---------- */
-const VISTAS = ['vInicio', 'vComida', 'vTreino', 'vPeso', 'vPele', 'vLigacoes'];
+const VISTAS = ['vInicio', 'vComida', 'vTreino', 'vPeso', 'vPele', 'vCultivo', 'vLigacoes'];
 function renderVista(){
   limparDicas(); GRAFS = {};
   for (const v of VISTAS){ const el = $('#' + v); el.hidden = v !== vista; if (v !== vista && el.innerHTML) el.innerHTML = ''; }
   $$('nav.barra .tab[data-v]').forEach(b => b.classList.toggle('ativo', b.dataset.v === vista));
   if (!DADOS){ if (vista === 'vLigacoes') renderLigacoes(); else $('#' + vista).innerHTML = '<div class="esqueleto"></div><div class="esqueleto" style="height:180px"></div>'; return; }
-  ({vInicio: renderInicio, vComida: renderComida, vTreino: renderTreino, vPeso: renderPeso, vPele: renderPele, vLigacoes: renderLigacoes})[vista]();
+  ({vInicio: renderInicio, vComida: renderComida, vTreino: renderTreino, vPeso: renderPeso, vPele: renderPele, vCultivo: renderCultivo, vLigacoes: renderLigacoes})[vista]();
   const el = $('#' + vista); el.classList.remove('entra', 'entra-esq', 'entra-dir');
   if (transicao){ void el.offsetWidth; el.classList.add(transicao); transicao = ''; }
 }
@@ -283,7 +283,7 @@ function blocoMirante(){
           <li>Cria um token "fine-grained" com acesso a <b>mirante-dados</b> e aos repositórios de dados da Garfada, da Forja e da Nascente, com <b>Contents: Read and write</b>.</li>
           <li>Põe aqui o token, no telemóvel e no PC.</li>
         </ol>
-        <p class="sub">O token fica só neste dispositivo. No mirante-dados só ficam os nomes dos repositórios das apps e as leituras do vigia; nunca tokens nem chaves. Nos repositórios das apps o Mirante só lê.</p>
+        <p class="sub">O token fica só neste dispositivo. No mirante-dados só ficam os nomes dos repositórios das apps, as leituras do vigia e as crónicas do cultivo; nunca tokens nem chaves. Nos repositórios das apps o Mirante só lê.</p>
         <label class="campo">Utilizador GitHub<input name="dono" value="${esc(donoSug)}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="danielgog7"></label>
         <label class="campo">Repositório<input name="repo" value="${esc(g.repo || 'mirante-dados')}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="mirante-dados"></label>
         <label class="campo">Token<input name="token" type="password" value="${esc(g.token || '')}" autocomplete="off" spellcheck="false" placeholder="github_pat_…"></label>
@@ -520,11 +520,13 @@ async function imagemSemana(S){
 async function partilhar(){
   const S = RL ? RL.S : semana(segundaDe(hojeN()) + semOff * 7);
   toast('A preparar a imagem…');
-  const blob = await imagemSemana(S);
+  await partilharBlob(await imagemSemana(S), `mirante-${chaveDe(S.ini)}.png`, 'A minha semana no Mirante', 'Imagem da semana', `Resumo da semana de ${rotSemana(S.ini)}`);
+}
+async function partilharBlob(blob, nome, titulo, cab, alt){
   if (!blob){ toast('Não consegui criar a imagem.'); return; }
-  const nome = `mirante-${chaveDe(S.ini)}.png`, file = new File([blob], nome, {type: 'image/png'});
+  const file = new File([blob], nome, {type: 'image/png'});
   if (navigator.canShare && navigator.canShare({files: [file]})){
-    try { await navigator.share({files: [file], title: 'A minha semana no Mirante'}); return; } catch(e){ if (e.name === 'AbortError') return; }
+    try { await navigator.share({files: [file], title: titulo}); return; } catch(e){ if (e.name === 'AbortError') return; }
   }
   const url = URL.createObjectURL(blob);
   // Num computador, descarrega. Onde não dá para descarregar (por exemplo, dentro de outra página), mostra a imagem para guardar à mão.
@@ -532,8 +534,8 @@ async function partilhar(){
     const a = document.createElement('a'); a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove();
     toast('Imagem descarregada.'); setTimeout(() => URL.revokeObjectURL(url), 5000); return;
   }
-  $('#folha').innerHTML = `<div class="folha-c"><div class="pega"></div><div class="folha-cab"><div><h2 style="font-size:22px">Imagem da semana</h2><p class="sub">Toca sem largar na imagem para a guardar ou partilhar.</p></div><button class="ic" data-acao="fecharFolha" aria-label="Fechar">${X_ICO}</button></div>
-    <img src="${url}" alt="Resumo da semana de ${rotSemana(S.ini)}" style="width:100%;border-radius:16px;margin-top:14px;display:block"></div>`;
+  $('#folha').innerHTML = `<div class="folha-c"><div class="pega"></div><div class="folha-cab"><div><h2 style="font-size:22px">${esc(cab)}</h2><p class="sub">Toca sem largar na imagem para a guardar ou partilhar.</p></div><button class="ic" data-acao="fecharFolha" aria-label="Fechar">${X_ICO}</button></div>
+    <img src="${url}" alt="${esc(alt)}" style="width:100%;border-radius:16px;margin-top:14px;display:block"></div>`;
   $('#folha').classList.add('por-cima'); abrirOverlay('folha');
 }
 
@@ -551,6 +553,13 @@ const ACOES = {
   dia(el){ if (el.dataset.v) abrirDia(el.dataset.v); },
   range(el){ evoRange = +el.dataset.v; ML.set('evoRange', evoRange); const y = scrollY; renderVista(); scrollTo({top: y}); },
   verCapa(){ mostrarCapa(true); },
+  cronMes(el){ cronMes = el.dataset.v; const y = scrollY; renderVista(); scrollTo({top: y}); },
+  async cronica(el){
+    el.disabled = true; el.textContent = 'O cronista está a escrever…';
+    try { await pedirCronica(el.dataset.v); const y = scrollY; renderVista(); scrollTo({top: y}); }
+    catch(e){ toast(e.message || 'Não consegui escrever a crónica.', 4500); el.disabled = false; el.textContent = 'Tentar outra vez'; }
+  },
+  async partilharCult(){ toast('A preparar a imagem…'); try { await partilharBlob(await imagemCultivo(), `mirante-cultivo-${chaveData(new Date())}.png`, 'O meu cultivo no Mirante', 'O teu cultivador', 'O cultivador e o seu reino'); } catch(e){ toast('Não consegui criar a imagem.'); } },
   capaLig(el){ ML.set('capa', Object.assign(CAPA_CFG(), {on: el.checked})); },
   capaSom(el){ ML.set('capa', Object.assign(CAPA_CFG(), {som: el.checked})); },
   ceu(el){ ML.set('ceu', el.checked); if (el.checked) Ceu.ligar(); else Ceu.desligar(); },

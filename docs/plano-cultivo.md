@@ -1,6 +1,6 @@
 # Plano: o cultivador do Mirante
 
-Estado: fase 1 construída e publicada (regras, capa com 3 toques, palcos 1 a 4, mosaico, reino da Pele). Falta a fase 2 e a 3. Este ficheiro é o guião para as sessões de construção.
+Estado: fase 1 publicada (regras, capa com 3 toques, palcos 1 a 4, mosaico, reino da Pele) e extras publicados: objetos das apps (espada, cabaça, jade), pílulas de proteção, céu real (fase da lua e hora; lua cheia dá Shen a dobrar), vista Cultivo com o mapa da ascensão, crónica do mês pela IA e imagem para partilhar. Falta: palcos 5 a 9, lótus dos 28 dias, missão do dia, tribulação, constelações, vigia a falar do cultivo. Este ficheiro é o guião para as sessões de construção.
 
 ## Ideia
 
