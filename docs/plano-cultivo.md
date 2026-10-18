@@ -90,10 +90,68 @@ Fases: Inicial, Intermédia, Tardia, Pico. Nomes diferentes dos da Nascente para
 ## Fases
 
 1. Núcleo: `cultivo.js` com testes; cultivador portado com 3 dantians; capa com 3 toques nos palcos 1 a 3; partículas de 3 cores; mosaico no Início; correção do reino da Pele. Publicar.
-2. Céu completo: palcos 4 a 9, astrolábio, lótus dos 28 dias, vista Cultivo com os gráficos. Publicar.
+2. Céu completo: palcos 4 a 9, astrolábio, lótus dos 28 dias, missão do dia, vista Cultivo com os gráficos. Publicar.
 3. Acabamentos: tribulação, constelações das semanas, vigia a falar do cultivo, afinação de desempenho e som. Publicar.
 
 ## Testes por fase
 
 - node: semana perfeita, dias vazios (perdas e chão), gargalo, desvio, tesouro inativo não bloqueia, fluxo.
 - Playwright: capa abre, 3 toques entram na app, sem erros na consola, fps >= 50 em 2 s, capturas de cada palco (`?reino=N` só para pré-visualização), animações reduzidas.
+
+## Especificação técnica (para construir sem voltar a explorar)
+
+### Dados do Mirante a usar (já existem)
+- `IDX.dias.get(k)` -> {kcal, prot, n (refeições)}; metas em `IDX.metas` (kcal, prot, agua); água em `D.agua[k]`.
+- Calorias na meta: `|kcal - m.kcal| <= m.kcal * 0.1` (igual a `S.comida.naMeta`); proteína: `prot >= m.prot * 0.9` (igual a `protOk`).
+- Treinos do dia: `IDX.treinosDia.get(k)`; recorde no dia: algum exercício com `v` acima do melhor anterior em `IDX.hist` (mesma regra de `S.treino.recordes`).
+- Meta semanal de treinos: `D.fcfg.dias`. Nota da semana: `semana(ini).nota.total`.
+- Nascente: `D.nas.registos[k].mF` / `.nF`; registo da pele: `D.nas.pele.some(x => x.d === k)`.
+- Peso: `IDX.peso.has(k)`; direção da semana: `IDX.tend` no fim contra o início, comparada com `D.gcfg.objetivo` / `pesoMeta`.
+
+### Funções
+- `tesourosDia(k)` -> {jing, qi, shen, forma, ativos: {jing, qi, shen, forma}, equilibrado}
+- `ativo(t, k)`: primeiro registo da app <= k e há registo dela em [k-29, k].
+- `cultivoMirante()` percorre os dias desde o primeiro registo de qualquer app até hoje (o dia de hoje só conta ganhos, nunca perdas).
+  Devolve {qi, idx, r, reino, nivel, pct, prox, fluxo, serie, chao, gargalo: {preso, falta: ['shen', ...]}, desvio: ['qi', ...],
+  hoje: {jing, qi, shen, forma}, dias: [{k, jing, qi, shen, forma, total, mult, perda}], eventos: [{k, tipo: 'ganho'|'perda'|'rompe'|'nivel', qi}]}.
+  Guardar em cache pela assinatura dos dados (como `CACHE_SEM`).
+- `missaoDia(k)`: o tesouro ativo mais fraco nos 7 dias anteriores dá a missão (ex.: "os dois rituais hoje", "proteína na meta", "treina hoje"); cumprida dá +5. Só usa dias anteriores, por isso é igual em todos os dispositivos.
+
+### Casos de teste (node)
+- Dia perfeito, fluxo Disperso: 12 + 12 + 10 + 1 = 35.
+- 6 dias equilibrados seguidos: o 7.º dia multiplica por 1,25.
+- Dia vazio no nível 1 do reino 2 (custo 60): perde max(15, 6% de 60) = 15 e o fluxo volta a x1; nunca abaixo do chão do reino.
+- Só Garfada usada: Forja, Nascente e peso inativos; os dias com comida contam como equilibrados e não há desvio.
+- Nascente a zero 5 dias com as outras ativas: ganhos dos outros a 70% e `desvio = ['shen']`.
+- No pico com a última nota da semana 60: `gargalo.preso = true` e o qi fica no limite; com nota 75 e tesouros acima de 50%: rompe.
+- Calibração: com os dados de exemplo, 1.º reino passado em 3 a 5 dias e reino 2 a meio ao fim de 3 semanas; se não, ajustar só os custos.
+
+### Capa: tempos
+- Entrada: aparece em 500 ms; respiração de 4,8 s em ciclo; 40 partículas iniciais.
+- Toque 1 (600 ms): olhos abrem (200 ms); os dantians acendem um a um (3 x 180 ms) com o valor de hoje por baixo.
+- Toque 2 (900 ms): mãos sobem ao peito (400 ms); o astrolábio cresce de 0,6 a 1 e roda (700 ms); as 28 pétalas do lótus crescem em sequência (20 ms cada).
+- Toque 3 (1,5 s): as partículas aceleram para o centro (450 ms), clarão branco (150 ms), as estrelas esticam em raios (600 ms), o Mirante aparece (300 ms).
+- Teclado: Espaço e Enter contam como toque; Esc salta.
+
+### Partículas
+- Por tesouro ativo: taxa = 4 + 10 x (qi de hoje / máximo) por segundo; cor do tesouro; alvo = o seu dantian. Tesouro em desvio: partículas cinzentas e lentas.
+- Teto de 260 partículas; sprites de 32 px pré-desenhados; `globalCompositeOperation = 'lighter'`.
+
+### Palcos (SVG 400 x 800, `xMidYMax slice`, mais camadas de canvas)
+1. Cume ao anoitecer: céu #2a1f3d para #0d1424, brilho do sol posto (#e0a26b) no horizonte, serras do Mirante, ele num pico rochoso.
+2. Noite: céu #0a0f1e para #05070d, estrelas do `ceu.js` e Via Láctea, 6 fios de luz das estrelas até ele (traço animado).
+3. Jade: disco de jade (#2f7260 para #a6dcc6) por baixo dele, 3 faixas de aurora em canvas (ondas com transparência).
+4. Nuvens: 4 camadas de nuvens a deslizar a velocidades diferentes, lua com crateras (r 140) atrás dele.
+5. Lua: chão lunar com crateras (#8a8f99), a Terra a nascer (#3b6fb6, nuvens e atmosfera), clarão do sol.
+6. Constelações: espaço negro; cada semana fechada é uma estrela (brilho = nota), ligadas em constelações e por fios a ele.
+7. Nebulosa: canvas fora do ecrã com 5 gradientes radiais (#7a3fa0, #2a6fb0, #d0507a) e ruído, mais poeira a flutuar.
+8. Galáxia: 1500 pontos em 2 braços em espiral logarítmica, rotação de 0,02 rad/s, núcleo brilhante.
+9. Firmamento: pilar de luz branco e dourado, ele vira estrela (brilho a pulsar), anéis.
+
+### Aparência do cultivador (índice de `VISUAL_C` da Nascente)
+Reinos 1 a 9 -> 0, 1, 2, 3, 4, 4 (com faixa de estrelas), 5, 5 (com halo de galáxia), 6.
+
+### Ficheiros a mexer
+- novos: `cultivo.js`, `cultivador.js`
+- `index.html` (div #capa e scripts antes de `vistas.js`), `sw.js` (lista e versão), `estilo.css` (secção capa), `app.js` (abrir a capa ao arrancar, ações, interruptores nas Ligações), `vistas.js` (mosaico e vista Cultivo), `pele.js` (reino da Nascente pelas regras novas), `vigia.js` (fase 3)
+- `demo.js`: os dados de exemplo têm de dar um cultivo plausível; `?reino=N` só para pré-visualizar palcos.
