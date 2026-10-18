@@ -37,6 +37,8 @@ function renderInicio(){
     : `<div class="nota-mini"><div class="nota-anel-caixa">${svgNota(n, 176, anim)}<div class="nota-num"><b>${anim ? 0 : n.total}</b><span>de 100</span></div></div>
       <div><span class="tile-cab"><i class="mk nota"></i>Nota da semana</span><h2>${n.faixa}</h2><p class="sub">${n.provisoria ? 'Provisória: a semana ainda não fechou.' : A.nota.total != null ? `Na semana anterior, ${A.nota.total}.` : ''}</p>
       <button class="bt pri${anim ? ' faisca' : ''}" data-acao="relato">${ESTRELA_ICO}Ver o relato</button></div></div>`}</section>`);
+  // Cultivo (os três tesouros de todas as apps)
+  tiles.push(tileCultivo());
   // Comida e água
   if (D.temGarfada){
     tiles.push(tile('ti-comida', 'vComida', 'Comida', 'comida', `<div class="tile-ilu prato-caixa">${svgPrato(c.tem ? c.kcalMed / m.kcal : 0, anim)}<div class="prato-num"><b>${c.tem ? fmtInt(c.kcalMed) : '—'}</b><span>kcal/dia</span></div></div>
@@ -238,7 +240,7 @@ function renderPele(){
     <section class="painel largo pele-hero">
       <div class="nascente-grande">${svgNascente(rp, {alto: true})}</div>
       <div class="pele-reino">${glifoReinoP(r.i)}<div><span class="tile-cab">Reino de cultivo</span><h2>${esc(r.nome)}</h2><p class="sub">${esc(r.frase)}</p>
-        ${r.prox ? `<div class="barra-m"><div class="lin"><span>Até ${esc(r.prox)}</span><b>faltam ${r.falta} ${r.falta === 1 ? 'ritual' : 'rituais'}</b></div><div class="trilho"><i style="width:${Math.max(2, r.pct * 100)}%;background:${COR.pele}"></i></div></div>` : ''}</div></div>
+        ${r.prox ? `<div class="barra-m"><div class="lin"><span>${esc(r.nivel)} · a seguir: ${esc(r.prox)}</span><b>faltam ${r.falta} qi</b></div><div class="trilho"><i style="width:${Math.max(2, r.pct * 100)}%;background:${COR.pele}"></i></div></div>` : ''}</div></div>
       <dl class="stats"><div><dt>Rituais feitos</dt><dd>${r.pts}</dd></div><div><dt>Dias seguidos</dt><dd>${seq}</dd></div><div><dt>Esta semana</dt><dd>${P.feitas} <small>de ${P.possiveis}</small></dd></div><div><dt>Frascos em uso</dt><dd>${fr.uso.length}</dd></div></dl></section>
     <section class="painel"><h2>Rituais da semana</h2><p class="sub">O sol é o ritual da manhã; a lua, o da noite. Meio aceso: começaste mas não terminaste.</p>
       ${htmlRituaisSemana(P)}

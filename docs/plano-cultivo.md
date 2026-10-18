@@ -1,6 +1,6 @@
 # Plano: o cultivador do Mirante
 
-Estado: planeado, por construir. Este ficheiro é o guião para as sessões de construção.
+Estado: fase 1 construída e publicada (regras, capa com 3 toques, palcos 1 a 4, mosaico, reino da Pele). Falta a fase 2 e a 3. Este ficheiro é o guião para as sessões de construção.
 
 ## Ideia
 

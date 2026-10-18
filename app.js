@@ -74,6 +74,7 @@ async function carregar(rede = true){
     usarDados(vazio ? Object.assign(montarDemo(), {demoAuto: true}) : dados);
   }, {rede});
 }
+let capaVista = false;
 function usarDados(dados){
   DADOS = dados;
   CACHE_SEM.clear();
@@ -85,6 +86,7 @@ function usarDados(dados){
     if (h === segundaDe(h) && (A.comida.tem || A.treino.sessoes)) semOff = -1;
   }
   estadoTopo(); aviso(); renderVista();
+  if (!capaVista){ capaVista = true; ligarCapa(); mostrarCapa(); }
   if (abrirRelatoNoInicio){ abrirRelatoNoInicio = false; abrirRelato(); }
 }
 function primeiraSemana(){
@@ -300,6 +302,9 @@ function renderLigacoes(){
         <label class="campo">Chave do Gemini<input id="chaveIA" type="password" value="${esc(mc.chave || '')}" autocomplete="off" spellcheck="false"></label>
         <div class="linha-bt"><button class="bt pri" data-acao="guardarChave">Guardar</button>${mc.chave ? '<button class="bt" data-acao="esquecerChave">Esquecer</button>' : ''}</div></div></details></section>
   <section class="painel"><h2>IA de reserva (Groq)</h2>${IA.htmlGroq({sub: 'sub', pri: 'bt pri', campo: 'campo'})}</section>
+  <section class="painel"><label class="interruptor"><span><h2>Capa do cultivador</h2><span class="sub">Ao abrir o Mirante, o teu cultivador absorve o qi da Garfada, da Forja e da Nascente. Toca três vezes para entrar; toque longo para saltar.</span></span><input type="checkbox" data-acao="capaLig" ${CAPA_CFG().on ? 'checked' : ''} aria-label="Mostrar a capa ao abrir"></label>
+    <label class="interruptor" style="margin-top:12px"><span><span class="sub">Som de sino nos toques</span></span><input type="checkbox" data-acao="capaSom" ${CAPA_CFG().som ? 'checked' : ''} aria-label="Som nos toques"></label>
+    <div class="linha-bt" style="margin-top:12px"><button class="bt" data-acao="verCapa">Ver o cultivador agora</button></div></section>
   <section class="painel"><label class="interruptor"><span><h2>Céu animado</h2><span class="sub">Estrelas a rodar devagar, a Via Láctea e estrelas cadentes no fundo. Desliga para poupar bateria.</span></span><input type="checkbox" id="ceuLig" data-acao="ceu" ${ML.get('ceu', true) !== false ? 'checked' : ''} aria-label="Céu animado"></label></section>
   <section class="painel"><label class="interruptor"><span><h2>Dados de exemplo</h2><span class="sub">Mostra 12 semanas inventadas, para veres como fica.</span></span><input type="checkbox" data-acao="demo" ${demoForcado ? 'checked' : ''} aria-label="Mostrar dados de exemplo"></label></section>
   <section class="painel"><h2>Manutenção</h2><p class="sub" style="margin:4px 0 12px">A cache guarda o que veio do GitHub para abrir depressa e sem rede.</p>
@@ -545,6 +550,9 @@ const ACOES = {
   fecharRelato(){ fecharOverlay('relato'); }, fecharFolha(){ fecharOverlay('folha'); },
   dia(el){ if (el.dataset.v) abrirDia(el.dataset.v); },
   range(el){ evoRange = +el.dataset.v; ML.set('evoRange', evoRange); const y = scrollY; renderVista(); scrollTo({top: y}); },
+  verCapa(){ mostrarCapa(true); },
+  capaLig(el){ ML.set('capa', Object.assign(CAPA_CFG(), {on: el.checked})); },
+  capaSom(el){ ML.set('capa', Object.assign(CAPA_CFG(), {som: el.checked})); },
   ceu(el){ ML.set('ceu', el.checked); if (el.checked) Ceu.ligar(); else Ceu.desligar(); },
   async atualizar(){ toast('A atualizar…', 1500); await carregar(true); estadoTopo(); if (vista === 'vLigacoes') renderLigacoes(); },
   async limparCache(){ await MDB.limpar(); toast('Cache limpa. A ler de novo…'); await carregar(true); if (vista === 'vLigacoes') renderLigacoes(); },

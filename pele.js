@@ -16,11 +16,54 @@ const TIPO_FRASCO = {desmaq: 'Desmaquilhante', limpeza: 'Limpeza', esfoliante: '
 const ATIVO_C = {retinoide: 'Retinoide', aha: 'AHA', bha: 'BHA', pha: 'PHA', vitc: 'Vit. C', niacinamida: 'Niacinamida', peroxido: 'Peróxido', azelaico: 'Azelaico', cobre: 'Cobre',
   peptidos: 'Péptidos', hialuronico: 'Hialurónico', ceramidas: 'Ceramidas', ureia: 'Ureia', enxofre: 'Enxofre', zinco: 'Zinco', argila: 'Argila', fisico: 'Grânulos', enzimas: 'Enzimas',
   despigmentante: 'Despigmentante', bakuchiol: 'Bakuchiol', calmante: 'Calmante', antioxidante: 'Antioxidante', spf: 'SPF'};
-const REINOS_P = [
-  [0, 'Despertar do Qi', 'Sentes o primeiro fio de energia na pele.'], [10, 'Refinamento do Corpo', 'A rotina começa a criar raízes.'],
-  [30, 'Fundação', 'A barreira da pele fortalece-se.'], [70, 'Núcleo Dourado', 'A constância tornou-se natural.'],
-  [140, 'Alma Nascente', 'A pele renova-se como água de nascente.'], [250, 'Transformação Divina', 'Poucos chegam tão longe.'], [400, 'Imortal da Pele de Jade', 'Pele de jade, espírito sereno.']
+// Os reinos de cultivo da Nascente (iguais aos da app: cada ritual completo dá qi, cada falha tira; ao romper um reino já não se cai abaixo dele).
+const REINOS_NAS = [
+  {nome: 'Têmpera do Corpo', niveis: ['Pele', 'Carne', 'Ossos'], custo: () => 40, frase: 'O corpo endurece antes de o qi poder fluir.'},
+  {nome: 'Condensação de Qi', niveis: 12, custo: i => 60 + 10 * i, frase: 'O qi do mundo começa a juntar-se no teu dantian.'},
+  {nome: 'Estabelecimento da Fundação', niveis: ['Fase inicial', 'Fase intermédia', 'Fase tardia', 'Pico'], custo: () => 600, frase: 'Uma fundação sólida: a constância já faz parte de ti.'},
+  {nome: 'Núcleo Dourado', niveis: ['Fase inicial', 'Fase intermédia', 'Fase tardia', 'Pico'], custo: () => 900, frase: 'O qi condensou-se num núcleo de ouro.'},
+  {nome: 'Alma Nascente', niveis: ['Fase inicial', 'Fase intermédia', 'Fase tardia', 'Pico'], custo: () => 1300, frase: 'Uma segunda alma nasce do teu núcleo.'},
+  {nome: 'Transformação Divina', niveis: ['Fase inicial', 'Fase intermédia', 'Fase tardia', 'Pico'], custo: () => 1800, frase: 'O corpo mortal dá lugar ao divino.'},
+  {nome: 'Ascensão Imortal', niveis: ['Imortal'], custo: () => Infinity, frase: 'Pele de jade, espírito eterno. O topo da montanha.'}
 ];
+const listaNiveis = R => { const l = []; let qi = 0;
+  R.forEach((r, ri) => { const n = Array.isArray(r.niveis) ? r.niveis.length : r.niveis;
+    for (let i = 0; i < n; i++){ const custo = r.custo(i); l.push({r: ri, i, n, ini: qi, custo, rotulo: Array.isArray(r.niveis) ? r.niveis[i] : 'Nível ' + (i + 1)}); qi += custo; } });
+  return l; };
+const NIVEIS_NAS = listaNiveis(REINOS_NAS);
+const nivelEm = (L, qi) => { let i = 0; while (i + 1 < L.length && qi >= L[i + 1].ini) i++; return i; };
+function infoNivel(R, L, qi){
+  const idx = nivelEm(L, qi), N = L[idx], prox = L[idx + 1];
+  return {idx, r: N.r, reino: R[N.r].nome, frase: R[N.r].frase, nivel: typeof R[N.r].niveis === 'number' ? `Nível ${N.i + 1} de ${N.n}` : N.rotulo, nNivel: N.i + 1, nNiveis: N.n,
+    dentro: qi - N.ini, custo: N.custo, pct: prox ? (qi - N.ini) / N.custo : 1, prox: prox ? (prox.r !== N.r ? R[prox.r].nome : prox.rotulo) : null, rompe: !!prox && prox.r !== N.r};
+}
+// Port do cultivo() da Nascente: percorre os rituais desde o primeiro completo até agora.
+function cultivoNascente(agora = new Date()){
+  const reg = (D.nas && D.nas.registos) || {}, ks = Object.keys(reg).filter(k => reg[k].mF || reg[k].nF).sort();
+  if (!ks.length) return Object.assign({qi: 0, serie: 0, total: 0, falhas: 0}, infoNivel(REINOS_NAS, NIVEIS_NAS, 0));
+  const deK = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+  const ini = D.nas.cfg && D.nas.cfg.cultivoInicio ? deK(D.nas.cfg.cultivoInicio) : null;
+  let d = deK(ks[0]), s = reg[ks[0]].mF ? 'm' : 'n', qi = 0, chao = 0, serie = 0, total = 0, falhas = 0;
+  for (let guarda = 0; guarda < 20000; guarda++){
+    const k = chaveData(d), r = reg[k] || {};
+    const fim = s === 'm' ? new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1) : new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 5);
+    const inicio = s === 'm' ? d : new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12);
+    if (inicio > agora) break;
+    const idx = nivelEm(NIVEIS_NAS, qi);
+    if (r[s + 'F']){ qi += 10 + Math.min(10, Math.floor(serie / 2)); serie++; total++; }
+    else if (fim <= agora){
+      if (!ini || d >= ini){ const parcial = ehObj(r[s]) && Object.keys(r[s]).length > 0, p = Math.round(Math.max(20, Math.round(Math.min(NIVEIS_NAS[idx].custo, 2000) * .06)) * (parcial ? .5 : 1));
+        qi = Math.max(chao, qi - p); serie = 0; falhas++; }
+    } else break;
+    const ni = nivelEm(NIVEIS_NAS, qi); if (NIVEIS_NAS[ni].r > NIVEIS_NAS[nivelEm(NIVEIS_NAS, chao)].r) chao = NIVEIS_NAS.find(l => l.r === NIVEIS_NAS[ni].r).ini;
+    if (s === 'm') s = 'n'; else { s = 'm'; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1); }
+  }
+  return Object.assign({qi, serie, total, falhas}, infoNivel(REINOS_NAS, NIVEIS_NAS, qi));
+}
+function reinoPele(){
+  const c = cultivoNascente(), pts = Object.values(D.nas.registos).reduce((s, r) => s + (r.mF ? 1 : 0) + (r.nF ? 1 : 0), 0);
+  return {pts, i: c.r, nome: c.reino, frase: c.frase, nivel: c.nivel, prox: c.prox, falta: c.prox ? Math.max(0, c.custo - c.dentro) : 0, pct: c.pct, qi: c.qi};
+}
 
 /* ---------- Rituais ---------- */
 function ritualDia(k){
@@ -53,12 +96,6 @@ function notaPele(P){
   if (P.adesao == null) return null;
   const g = P.medias.geral;
   return Math.round(100 * (g == null ? P.adesao : P.adesao * .7 + g / 4 * .3));
-}
-function reinoPele(){
-  const pts = Object.values(D.nas.registos).reduce((s, r) => s + (r.mF ? 1 : 0) + (r.nF ? 1 : 0), 0);
-  let i = 0; while (i + 1 < REINOS_P.length && pts >= REINOS_P[i + 1][0]) i++;
-  const prox = REINOS_P[i + 1];
-  return {pts, i, nome: REINOS_P[i][1], frase: REINOS_P[i][2], prox: prox ? prox[1] : null, falta: prox ? prox[0] - pts : 0, pct: prox ? (pts - REINOS_P[i][0]) / (prox[0] - REINOS_P[i][0]) : 1};
 }
 function sequenciaPele(){
   let n = hojeN(), seq = 0;
