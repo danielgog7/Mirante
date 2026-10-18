@@ -1,6 +1,6 @@
 'use strict';
 /* Mirante — camada de dados.
-   Lê, sem nunca alterar, os dados da Garfada e da Forja, por dois caminhos:
+   Lê, sem nunca alterar, os dados da Garfada, da Forja e da Nascente, por dois caminhos:
    1) neste dispositivo: as três apps vivem em danielgog7.github.io, por isso partilham o armazenamento do navegador;
    2) nos repositórios privados do GitHub onde cada app sincroniza (árvore + blobs, com cache por sha).
    Funde as duas origens com as mesmas regras das apps: ganha a versão mais recente e os apagados deixam marca. */
@@ -124,8 +124,11 @@ async function lerLocal(){
   return {garfada, forja, nascente};
 }
 
-/* ---------- Credenciais (as das apps neste dispositivo, ou as que puseres no Mirante) ---------- */
-function credenciais(){
+/* ---------- Credenciais ----------
+   Por ordem: a ligação própria que puseres no Mirante para essa app; a da própria app neste dispositivo;
+   e, se nenhuma existir (por exemplo no PC, onde as apps não estão configuradas), o token do Mirante (repositório mirante-dados),
+   com os nomes dos repositórios que o outro dispositivo lá deixou. */
+function credenciaisDiretas(){
   const proprias = ML.get('fontes', {}) || {};
   const das = {garfada: LS.get('gh', null), forja: LS.get('forja.gh', null), nascente: LS.get('nascente.gh', null)};
   const out = {};
@@ -134,6 +137,14 @@ function credenciais(){
     if (p.token && p.dono && p.repo) out[app] = {dono: p.dono, repo: p.repo, token: p.token, origem: 'mirante'};
     else if (a.token && a.dono && a.repo) out[app] = {dono: a.dono, repo: a.repo, token: a.token, origem: 'app'};
     else out[app] = null;
+  }
+  return out;
+}
+function credenciais(){
+  const out = credenciaisDiretas(), g = ghMirante(), repos = ML.get('repos', {}) || {};
+  if (g) for (const app of APPS) if (!out[app]){
+    const r = ehObj(repos[app]) && repos[app].dono && repos[app].repo ? repos[app] : {dono: g.dono, repo: app + '-dados'};
+    out[app] = {dono: r.dono, repo: r.repo, token: g.token, origem: 'mirante-dados', adivinhado: !ehObj(repos[app])};
   }
   return out;
 }
@@ -227,6 +238,94 @@ async function testarRepo(app, c){
   const itens = await arvoreRepo(c), tipo = tipoRepo(itens);
   if (tipo !== app && tipo !== 'vazio' && tipo !== 'outro') throw new Error(`Este repositório tem dados da ${NOME_APP[tipo]}, não da ${NOME_APP[app]}.`);
   return tipo;
+}
+
+/* ---------- O próprio Mirante no GitHub (repositório mirante-dados) ----------
+   Com um só token (com acesso ao mirante-dados e aos repositórios das três apps), o Mirante funciona em qualquer dispositivo.
+   No mirante.json vão só os nomes dos repositórios das apps e as leituras do vigia: nunca tokens nem chaves.
+   É o único sítio onde o Mirante escreve. */
+const FICH_M = 'mirante.json';
+const SYNC_M = {estado: 'off', quando: 0, erro: ''};
+function ghMirante(){ const g = ML.get('gh', null); return ehObj(g) && g.token && g.dono && g.repo ? g : null; }
+const b64enc = s => { const b = new TextEncoder().encode(s); let t = ''; for (let i = 0; i < b.length; i += 8192) t += String.fromCharCode(...b.subarray(i, i + 8192)); return btoa(t); };
+const b64dec = s => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g, '')), c => c.charCodeAt(0)));
+const canon = v => Array.isArray(v) ? '[' + v.map(canon).join(',') + ']' : ehObj(v) ? '{' + Object.keys(v).filter(k => v[k] !== undefined).sort().map(k => JSON.stringify(k) + ':' + canon(v[k])).join(',') + '}' : JSON.stringify(v === undefined ? null : v);
+async function ghPedido(c, caminho, opt = {}){
+  try {
+    return await fetch(`https://api.github.com/repos/${enc(c.dono)}/${enc(c.repo)}${caminho}`, Object.assign({cache: 'no-store'}, opt, {
+      headers: Object.assign({'Authorization': 'Bearer ' + c.token, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'}, opt.headers || {})}));
+  } catch(e){ throw new Error('Sem ligação ao GitHub.'); }
+}
+async function lerMiranteRemoto(c){
+  const r = await ghPedido(c, '/contents/' + FICH_M);
+  if (r.status === 404){ const r0 = await ghPedido(c, ''); if (!r0.ok) throw erroGH(r0); return null; }   // repositório vazio ou ficheiro por criar
+  if (!r.ok) throw erroGH(r);
+  const j = await r.json(); if (Array.isArray(j)) return null;
+  let txt = j.content ? b64dec(j.content) : '';
+  if (!txt){ const r2 = await ghPedido(c, '/contents/' + FICH_M, {headers: {'Accept': 'application/vnd.github.raw+json'}}); if (!r2.ok) throw erroGH(r2); txt = await r2.text(); }
+  let dados; try { dados = JSON.parse(txt); } catch(e){ throw new Error('O mirante.json no GitHub está estragado.'); }
+  if (!ehObj(dados) || (dados.app && dados.app !== 'mirante')) throw new Error('Este repositório não é o do Mirante.');
+  return {sha: j.sha, dados};
+}
+async function escreverMiranteRemoto(c, dados, sha){
+  const corpo = {message: 'Mirante: ligações e leituras do vigia', content: b64enc(JSON.stringify(dados))}; if (sha) corpo.sha = sha;
+  const r = await ghPedido(c, '/contents/' + FICH_M, {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(corpo)});
+  if (r.status === 409 || r.status === 422) return {conflito: true};
+  if (r.status === 403 || r.status === 404) throw new Error(`O token não consegue escrever no ${c.repo}: precisa de "Contents: Read and write" nesse repositório.`);
+  if (!r.ok) throw erroGH(r);
+  return {sha: (await r.json()).content.sha};
+}
+// O que este dispositivo sabe e vale a pena ter nos outros.
+function reposConhecidos(){
+  const out = Object.assign({}, ML.get('repos', {}) || {}), d = credenciaisDiretas();
+  for (const app of APPS) if (d[app]) out[app] = {dono: d[app].dono, repo: d[app].repo};
+  return out;
+}
+function estadoMirante(){
+  return {app: 'mirante', versao: 1, repos: reposConhecidos(), vigia: ML.get('vigia', {}) || {}, vigiaIA: ML.get('vigiaIA', null)};
+}
+function fundirMirante(rem){
+  if (!ehObj(rem)) return;
+  // Repositórios: os que este dispositivo conhece diretamente mandam; os outros vêm do GitHub.
+  const d = credenciaisDiretas(), repos = Object.assign({}, ML.get('repos', {}) || {});
+  for (const app of APPS){ const r = ehObj(rem.repos) ? rem.repos[app] : null; if (!d[app] && ehObj(r) && r.dono && r.repo) repos[app] = {dono: String(r.dono), repo: String(r.repo)}; }
+  ML.set('repos', repos);
+  // Leituras do vigia: em cada semana ganha a mais recente; ficam as 20 últimas.
+  const v = Object.assign({}, ML.get('vigia', {}) || {});
+  for (const [k, x] of Object.entries(ehObj(rem.vigia) ? rem.vigia : {})) if (ehObj(x) && x.r && (!ehObj(v[k]) || (x.ts || 0) > (v[k].ts || 0))) v[k] = x;
+  const limpo = {}; for (const k of Object.keys(v).sort().slice(-20)) limpo[k] = v[k];
+  ML.set('vigia', limpo);
+  const a = ML.get('vigiaIA', null), b = rem.vigiaIA;
+  if (ehObj(b) && b.r && (!ehObj(a) || (b.ts || 0) > (a.ts || 0))) ML.set('vigiaIA', b);
+}
+let syncEmCurso = null, tSyncM = null;
+function agendarSyncMirante(ms = 2500){ if (!ghMirante()) return; clearTimeout(tSyncM); tSyncM = setTimeout(() => sincronizarMirante().catch(() => {}), ms); }
+// Lê o mirante.json, junta-o ao que há aqui e grava de volta se este dispositivo tiver novidades. Devolve true se mudou alguma coisa aqui.
+function sincronizarMirante(){
+  const c = ghMirante();
+  if (!c){ Object.assign(SYNC_M, {estado: 'off', erro: ''}); return Promise.resolve(false); }
+  if (syncEmCurso) return syncEmCurso;
+  SYNC_M.estado = 'a ler';
+  syncEmCurso = (async () => {
+    try {
+      const antes = canon(estadoMirante());
+      for (let tentativa = 0; tentativa < 3; tentativa++){
+        const rem = await lerMiranteRemoto(c);
+        if (rem) fundirMirante(rem.dados);
+        const novo = estadoMirante();
+        const remSemTs = rem ? Object.assign({}, rem.dados, {ts: undefined}) : null;
+        if (!remSemTs || canon(remSemTs) !== canon(novo)){
+          const w = await escreverMiranteRemoto(c, Object.assign({ts: Date.now()}, novo), rem && rem.sha);
+          if (w.conflito) continue;
+        }
+        Object.assign(SYNC_M, {estado: 'ok', quando: Date.now(), erro: ''});
+        return canon(estadoMirante()) !== antes;
+      }
+      throw new Error('O GitHub recusou a gravação três vezes seguidas. Tenta daqui a pouco.');
+    } catch(e){ Object.assign(SYNC_M, {estado: 'erro', erro: e.message || 'Erro ao sincronizar o Mirante.'}); throw e; }
+    finally { syncEmCurso = null; }
+  })();
+  return syncEmCurso;
 }
 
 /* ---------- Fusão ---------- */
@@ -353,19 +452,27 @@ const ROT_LOCAL = {
   nascente: L => `${L.produtos.filter(p => !p.fim).length} frascos, ${Object.keys(L.registos).length} dias de ritual e ${L.pele.length} registos da pele`
 };
 async function carregarDados(aoAtualizar, {rede = true} = {}){
-  const local = await lerLocal(), creds = credenciais(), cache = {};
-  for (const app of APPS) cache[app] = await remotoDaCache(app, creds[app]);
-  for (const app of APPS){
-    const L = local[app], c = creds[app];
-    FONTES[app] = {
-      local: L.existe ? {rotulo: ROT_LOCAL[app](L)} : null,
-      cred: c ? {dono: c.dono, repo: c.repo, origem: c.origem} : null,
-      estado: c ? (cache[app] ? 'cache' : 'espera') : 'off',
-      quando: cache[app] ? cache[app].quando : 0, erro: ''
-    };
-  }
+  const local = await lerLocal(), cache = {};
+  let creds = credenciais();
+  const ficha = (app, c, ca) => ({
+    local: local[app].existe ? {rotulo: ROT_LOCAL[app](local[app])} : null,
+    cred: c ? {dono: c.dono, repo: c.repo, origem: c.origem, adivinhado: !!c.adivinhado} : null,
+    estado: c ? (ca ? 'cache' : 'espera') : 'off',
+    quando: ca ? ca.quando : 0, erro: ''
+  });
+  for (const app of APPS){ cache[app] = await remotoDaCache(app, creds[app]); FONTES[app] = ficha(app, creds[app], cache[app]); }
   aoAtualizar(montar(local, cache.garfada, cache.forja, {}, cache.nascente), false);
   if (!rede || !navigator.onLine) return;
+  // Primeiro o mirante-dados: num dispositivo novo é ele que diz onde estão os dados das apps.
+  if (ghMirante()){
+    try { await sincronizarMirante(); } catch(e){}
+    const novas = credenciais();
+    for (const app of APPS){
+      const a = creds[app], b = novas[app];
+      if (b && (!a || chaveRepo(app, a) !== chaveRepo(app, b) || a.token !== b.token)){ cache[app] = await remotoDaCache(app, b); FONTES[app] = ficha(app, b, cache[app]); }
+    }
+    creds = novas;
+  }
   const remoto = Object.assign({}, cache);
   let novos = 0;
   await Promise.all(APPS.map(async app => {

@@ -627,7 +627,7 @@ Dados: ${JSON.stringify(dados)}`;
     const limpa = x => x && typeof x === 'object' ? {veredicto: String(x.veredicto || '').slice(0, 320), positivos: (x.positivos || []).slice(0, 4).map(y => String(y).slice(0, 280)), negativos: (x.negativos || []).slice(0, 4).map(y => String(y).slice(0, 280)), conselho: String(x.conselho || '').slice(0, 320)} : null;
     const res = {dia: limpa(o2.dia), semana: limpa(o2.semana), mes: limpa(o2.mes)};
     if (!res.dia && !res.semana && !res.mes) throw new Error('A IA respondeu num formato inválido.');
-    ML.set('vigiaIA', {dia: chaveData(new Date()), ts: Date.now(), ass: assinaturaTotal(an), r: res});
+    ML.set('vigiaIA', {dia: chaveData(new Date()), ts: Date.now(), ass: assinaturaTotal(an), r: res}); agendarSyncMirante();
   } catch(e){ toast(e.message || 'Não consegui a leitura da IA.', 4000); }
   vigiaPensa = false;
   if ($('#vigiaHero')) renderVigiaHero(false);

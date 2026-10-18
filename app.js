@@ -68,7 +68,7 @@ function montarDemo(){ return montar(gerarDemo(), null, null, {demo: true}); }
 async function carregar(rede = true){
   if (demoForcado){ usarDados(montarDemo()); return; }
   await carregarDados((dados, final) => {
-    const vazio = !dados.temGarfada && !dados.temForja;
+    const vazio = !dados.temGarfada && !dados.temForja && !dados.temNascente;
     const aEsperar = Object.values(FONTES).some(f => f.estado === 'espera' || f.estado === 'a ler');
     if (vazio && !final && aEsperar){ DADOS = null; renderVista(); estadoTopo(); return; }
     usarDados(vazio ? Object.assign(montarDemo(), {demoAuto: true}) : dados);
@@ -98,7 +98,7 @@ function primeiraSemana(){
 /* ---------- Topo e avisos ---------- */
 function estadoTopo(){
   const el = $('#estado'), p = el.querySelector('.ponto'), t = el.querySelector('span');
-  const F = Object.values(FONTES), aLer = F.some(f => f.estado === 'a ler'), erro = F.find(f => f.estado === 'erro'), ok = F.filter(f => f.estado === 'ok');
+  const F = Object.values(FONTES), aLer = F.some(f => f.estado === 'a ler') || SYNC_M.estado === 'a ler', erro = F.find(f => f.estado === 'erro'), ok = F.filter(f => f.estado === 'ok');
   let cls = '', txt = '';
   if (DADOS && DADOS.demo){ txt = 'Dados de exemplo'; }
   else if (aLer){ cls = 'pend'; txt = 'A atualizar…'; }
@@ -111,7 +111,7 @@ function estadoTopo(){
 }
 function aviso(){
   const el = $('#aviso');
-  if (DADOS && DADOS.demoAuto) el.innerHTML = `<div><span><b>Estás a ver dados de exemplo.</b> Ainda não encontrei dados da Garfada nem da Forja.</span><button class="bt pri" data-acao="irLigacoes">Ligar as minhas apps</button></div>`;
+  if (DADOS && DADOS.demoAuto) el.innerHTML = `<div><span><b>Estás a ver dados de exemplo.</b> Ainda não encontrei dados da Garfada, da Forja nem da Nascente.</span><button class="bt pri" data-acao="irLigacoes">Ligar as minhas apps</button></div>`;
   else if (DADOS && DADOS.demo) el.innerHTML = `<div><span><b>Modo de exemplo ligado.</b> Os números não são teus.</span><button class="bt" data-acao="sairDemo">Ver os meus dados</button></div>`;
   else { el.innerHTML = ''; el.hidden = true; return; }
   el.hidden = false;
@@ -229,7 +229,7 @@ Dados: ${JSON.stringify(resumoParaIA(S, A))}`;
   const todos = ML.get('vigia', {}) || {};
   todos[chaveVigia(S)] = {ts: Date.now(), ass: assinaturaIA(S, A), r: res};
   const chaves = Object.keys(todos).sort().slice(-20), limpo = {}; for (const k of chaves) limpo[k] = todos[k];
-  ML.set('vigia', limpo);
+  ML.set('vigia', limpo); agendarSyncMirante();
   return res;
 }
 
@@ -247,9 +247,9 @@ function blocoFonte(app){
   let gh;
   if (!c) gh = linhaFonte('', `<b>GitHub:</b> sem ligação. Os registos feitos noutros dispositivos não aparecem.`);
   else {
-    const onde = `${esc(c.dono)}/${esc(c.repo)}`, de = c.origem === 'app' ? `, com a ligação da ${nome}` : '';
+    const onde = `${esc(c.dono)}/${esc(c.repo)}`, de = c.origem === 'app' ? `, com a ligação da ${nome}` : c.origem === 'mirante-dados' ? ', com o token do Mirante' : '';
     gh = F.estado === 'ok' ? linhaFonte('ok', `<b>GitHub:</b> ${onde}${de}. Lido às ${hora(F.quando)}.`)
-      : F.estado === 'erro' ? linhaFonte('erro', `<b>GitHub:</b> ${onde}. ${esc(F.erro)}`)
+      : F.estado === 'erro' ? linhaFonte('erro', `<b>GitHub:</b> ${onde}. ${esc(F.erro)}${c.adivinhado ? ` Este nome foi um palpite: abre o Mirante uma vez no dispositivo onde a ${nome} está ligada, para ele deixar o nome certo no mirante-dados, ou liga-a à mão aqui em baixo.` : ''}`)
       : F.estado === 'a ler' ? linhaFonte('pend', `<b>GitHub:</b> ${onde}. A ler…`)
       : linhaFonte('pend', `<b>GitHub:</b> ${onde}${de}.${F.quando ? ' Última leitura às ' + hora(F.quando) + '.' : ''}`);
   }
@@ -264,11 +264,35 @@ function blocoFonte(app){
         <div class="linha-bt"><button class="bt pri" data-acao="guardarFonte" data-v="${app}">Guardar e ler</button>${own.token ? `<button class="bt" data-acao="esquecerFonte" data-v="${app}">Esquecer esta ligação</button>` : ''}</div>
       </div></details></section>`;
 }
+function blocoMirante(){
+  const g = ML.get('gh', null) || {}, ligado = !!ghMirante(), d = credenciaisDiretas();
+  const donoSug = g.dono || (Object.values(d).find(Boolean) || {}).dono || '';
+  let estado;
+  if (!ligado) estado = linhaFonte('', '<b>Sem ligação.</b> Neste dispositivo o Mirante só vê as apps que estão configuradas aqui.');
+  else if (SYNC_M.estado === 'erro') estado = linhaFonte('erro', `<b>${esc(g.dono)}/${esc(g.repo)}:</b> ${esc(SYNC_M.erro)}`);
+  else if (SYNC_M.estado === 'a ler') estado = linhaFonte('pend', `<b>${esc(g.dono)}/${esc(g.repo)}:</b> a sincronizar…`);
+  else estado = linhaFonte(SYNC_M.estado === 'ok' ? 'ok' : 'pend', `<b>${esc(g.dono)}/${esc(g.repo)}:</b> ${SYNC_M.quando ? 'sincronizado às ' + hora(SYNC_M.quando) : 'à espera de rede'}. As apps sem ligação neste dispositivo são lidas com este token.`);
+  return `<section class="painel"><h2>Mirante no telemóvel e no PC</h2><ul class="fonte-linhas">${estado}</ul>
+    <details class="mais"${ligado ? '' : ' open'}><summary>${ligado ? 'Mudar a ligação' : 'Ligar ao repositório mirante-dados'}</summary>
+      <div class="form" id="formMirante">
+        <p class="sub">Com um só token, o Mirante abre em qualquer dispositivo com os teus dados todos, mesmo onde a Garfada, a Forja e a Nascente não estão configuradas.</p>
+        <ol class="passos-gh">
+          <li>No GitHub, cria um repositório <b>privado</b> chamado <b>mirante-dados</b> (pode ficar vazio).</li>
+          <li>Cria um token "fine-grained" com acesso a <b>mirante-dados</b> e aos repositórios de dados da Garfada, da Forja e da Nascente, com <b>Contents: Read and write</b>.</li>
+          <li>Põe aqui o token, no telemóvel e no PC.</li>
+        </ol>
+        <p class="sub">O token fica só neste dispositivo. No mirante-dados só ficam os nomes dos repositórios das apps e as leituras do vigia; nunca tokens nem chaves. Nos repositórios das apps o Mirante só lê.</p>
+        <label class="campo">Utilizador GitHub<input name="dono" value="${esc(donoSug)}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="danielgog7"></label>
+        <label class="campo">Repositório<input name="repo" value="${esc(g.repo || 'mirante-dados')}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="mirante-dados"></label>
+        <label class="campo">Token<input name="token" type="password" value="${esc(g.token || '')}" autocomplete="off" spellcheck="false" placeholder="github_pat_…"></label>
+        <div class="linha-bt"><button class="bt pri" data-acao="guardarMirante">Guardar e sincronizar</button>${ligado ? '<button class="bt" data-acao="esquecerMirante">Esquecer neste dispositivo</button>' : ''}</div>
+      </div></details></section>`;
+}
 function renderLigacoes(){
   const oc = origemChave(), mc = ML.get('cfg', {}) || {};
   $('#vLigacoes').innerHTML = `
-  <div class="cab-vista"><h1>Ligações</h1><p class="sub">O Mirante só lê. Nunca altera nada na Garfada nem na Forja.</p></div>
-  ${blocoFonte('garfada')}${blocoFonte('forja')}${blocoFonte('nascente')}
+  <div class="cab-vista"><h1>Ligações</h1><p class="sub">O Mirante só lê. Nunca altera nada na Garfada, na Forja nem na Nascente.</p></div>
+  ${blocoMirante()}${blocoFonte('garfada')}${blocoFonte('forja')}${blocoFonte('nascente')}
   <section class="painel"><h2>Leitura do vigia</h2>
     <ul class="fonte-linhas">${oc ? linhaFonte('ok', oc === 'mirante' ? '<b>Chave do Gemini:</b> a tua, guardada no Mirante.' : `<b>Chave do Gemini:</b> a mesma da ${NOME_APP[oc]}.`) : linhaFonte('', '<b>Chave do Gemini:</b> não encontrada neste dispositivo.')}</ul>
     <details class="mais"${mc.chave ? ' open' : ''}><summary>${mc.chave ? 'Chave própria do Mirante' : 'Usar outra chave'}</summary>
@@ -280,7 +304,7 @@ function renderLigacoes(){
   <section class="painel"><label class="interruptor"><span><h2>Dados de exemplo</h2><span class="sub">Mostra 12 semanas inventadas, para veres como fica.</span></span><input type="checkbox" data-acao="demo" ${demoForcado ? 'checked' : ''} aria-label="Mostrar dados de exemplo"></label></section>
   <section class="painel"><h2>Manutenção</h2><p class="sub" style="margin:4px 0 12px">A cache guarda o que veio do GitHub para abrir depressa e sem rede.</p>
     <div class="linha-bt"><button class="bt" data-acao="atualizar">Atualizar agora</button><button class="bt" data-acao="limparCache">Limpar a cache</button>${podeInstalar ? '<button class="bt pri" data-acao="instalar">Instalar o Mirante</button>' : ''}</div></section>
-  <p class="pe">Como funciona: a Garfada, a Forja e o Mirante vivem no mesmo endereço, por isso o Mirante lê diretamente o que cada app guardou neste navegador. Para juntar os dados de outros dispositivos, lê os repositórios privados onde cada app sincroniza. Junta tudo com as mesmas regras das apps: fica sempre a versão mais recente de cada registo.</p>`;
+  <p class="pe">Como funciona: a Garfada, a Forja, a Nascente e o Mirante vivem no mesmo endereço, por isso o Mirante lê diretamente o que cada app guardou neste navegador. Para juntar os dados de outros dispositivos, lê os repositórios privados onde cada app sincroniza. Junta tudo com as mesmas regras das apps: fica sempre a versão mais recente de cada registo. O único sítio onde o Mirante escreve é o seu próprio repositório, o mirante-dados.</p>`;
 }
 
 /* ---------- Detalhe do dia ---------- */
@@ -526,6 +550,21 @@ const ACOES = {
   async limparCache(){ await MDB.limpar(); toast('Cache limpa. A ler de novo…'); await carregar(true); if (vista === 'vLigacoes') renderLigacoes(); },
   async demo(el){ demoForcado = el.checked; ML.set('demo', demoForcado); semOff = 0; animarVista = true; inicial = true; await carregar(true); },
   async sairDemo(){ demoForcado = false; ML.set('demo', false); semOff = 0; inicial = true; animarVista = true; await carregar(true); if (DADOS && DADOS.demoAuto) irPara('vLigacoes'); },
+  async guardarMirante(el){
+    const f = $('#formMirante'), v = n => f.querySelector(`[name="${n}"]`).value.trim();
+    const c = {dono: v('dono'), repo: v('repo') || 'mirante-dados', token: v('token')};
+    if (!c.dono || !c.token){ toast('Preenche o utilizador e o token.'); return; }
+    el.disabled = true; el.textContent = 'A verificar…';
+    const antes = ML.get('gh', null);
+    try {
+      await lerMiranteRemoto(c);
+      ML.set('gh', c);
+      await sincronizarMirante();
+      toast('Mirante ligado ao GitHub. A ler as apps…'); await carregar(true);
+    } catch(e){ if (!antes || antes.token !== c.token) ML.set('gh', antes); toast(e.message || 'Não consegui ligar.', 5000); }
+    renderVista();
+  },
+  async esquecerMirante(){ ML.set('gh', null); Object.assign(SYNC_M, {estado: 'off', quando: 0, erro: ''}); await carregar(true); renderVista(); },
   async guardarFonte(el){
     const app = el.dataset.v, f = el.closest('[data-fonte]'), v = n => f.querySelector(`[name="${n}"]`).value.trim();
     const c = {dono: v('dono'), repo: v('repo'), token: v('token')};
@@ -533,7 +572,7 @@ const ACOES = {
     el.disabled = true; el.textContent = 'A verificar…';
     try {
       await testarRepo(app, c);
-      const todas = ML.get('fontes', {}) || {}; todas[app] = c; ML.set('fontes', todas);
+      const todas = ML.get('fontes', {}) || {}; todas[app] = c; ML.set('fontes', todas); agendarSyncMirante();
       toast(`Ligado à ${NOME_APP[app]}. A ler…`); await carregar(true);
     } catch(e){ toast(e.message || 'Não consegui ligar.', 4000); }
     renderVista();

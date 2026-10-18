@@ -896,3 +896,5 @@ blockquote.mestre { margin-top: 14px; padding: 12px 14px; border-left: 2px solid
 @media (prefers-reduced-motion: reduce) { .nas-cascata, .nas-nevoa, .nas-an, .nas-astro.aceso { animation: none !important; } }
 /* No computador a balança não estica a linha: assim a Comida e a Água não ficam com vazio por baixo */
 @media (min-width: 980px) { .ti-bal .balanca { max-height: 250px; } }
+ol.passos-gh { margin: 4px 0 2px 20px; display: grid; gap: 6px; font-size: 13.5px; color: var(--nevoa); line-height: 1.45; }
+ol.passos-gh b { color: var(--luar); }
