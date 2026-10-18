@@ -441,7 +441,7 @@ const chaveMirante = () => ((ML.get('cfg', {}) || {}).chave || '');
 // A chave a passar ao IA.pedir: a do Mirante, mesmo vazia (o ia-comum.js 2026-10-18b procura sozinho a de outra app ou passa ao Groq).
 // Com um ia-comum.js mais antigo, que não sabe procurar, passa a chave já encontrada.
 const chavePedido = () => typeof IA !== 'undefined' && IA.chaveGemini ? chaveMirante() : ((D && D.ia && D.ia.chave) || '');
-const iaLigada = () => typeof IA !== 'undefined' && IA.temIA ? !!IA.temIA(chaveMirante()) : !!(D && D.ia && D.ia.chave);
+const iaLigada = () => typeof IA === 'undefined' ? false : IA.temIA ? !!IA.temIA(chaveMirante()) : !!((D && D.ia && D.ia.chave) || (IA.temGroq && IA.temGroq()));
 function montar(local, remG, remF, extra = {}, remN = null){
   const g = fundirGarfada(local.garfada, remG), f = fundirForja(local.forja, remF);
   const nas = fundirNascente(local.nascente, remN);

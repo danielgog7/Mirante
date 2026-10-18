@@ -248,7 +248,7 @@ function origemChave(){
   }
   // ia-comum.js antigo: procura à mão nas apps deste aparelho
   const gc = LS.get('cfg', {}) || {}, fc = LS.get('forja.cfg', {}) || {}, nc = LS.get('nascente.cfg', {}) || {};
-  return (pareceCfgGarfada(gc) && gc.chave) ? 'Garfada' : (fc && fc.chave) ? 'Forja' : (nc && nc.chave) ? 'Nascente' : '';
+  return (pareceCfgGarfada(gc) && gc.chave) ? 'Garfada' : (fc && fc.chave) ? 'Forja' : (nc && nc.chave) ? 'Nascente' : iaLigada() ? 'groq' : '';
 }
 function textoOrigemChave(oc){
   if (oc === 'mirante') return linhaFonte('ok', '<b>Chave do Gemini:</b> a tua, guardada no Mirante.');
