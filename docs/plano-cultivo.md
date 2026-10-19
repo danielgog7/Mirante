@@ -8,7 +8,7 @@ Ao abrir o Mirante aparece uma capa com o cultivador (o mesmo personagem da capa
 Ele cultiva com o qi que vem de todas as apps. O cenário sobe com o reino: começa no cume do Mirante e acaba entre as galáxias.
 Três toques despertam-no e levam para a app.
 
-Desenho comum: `cultivador-arte.js` e `cultivador-arte.css` são iguais no Mirante e na Nascente (personagem, tesouros, objetos, lua, palcos). Mudar num e copiar para o outro. O Mirante guarda o retrato do cultivador em `mirante.retrato` (localStorage) e a Nascente desenha-o igual na secção Meditar.
+Desenho comum: `cultivador-arte.js` e `cultivador-arte.css` são iguais no Mirante e na Nascente (personagem de frente e de perfil, tesouros, objetos, lua, palcos). Mudar num e copiar para o outro. O Mirante guarda o retrato do cultivador em `mirante.retrato` (localStorage) e a Nascente desenha-o igual na secção Meditar, de perfil (avatarPerfilM), frente a frente com o Mestre.
 
 Base de código original: `nascente/cultivo.js` (já retirado da Nascente)
 - `avatarSVG()` (personagem, 7 aparências por reino), `VISUAL_C`
